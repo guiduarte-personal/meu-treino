@@ -223,6 +223,76 @@ body{
 .rpe-opt.s-mid.selected{background:var(--yellow);border-color:var(--yellow)}
 .rpe-opt.s-high.selected{background:var(--red);border-color:var(--red)}
 
+/* ── Wizard Steps ── */
+.wizard-label{font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+.wizard-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wizard-card{
+  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px 12px;text-align:center;cursor:pointer;
+  transition:border-color 0.15s,box-shadow 0.15s;box-shadow:var(--shadow);
+}
+.wizard-card:active{border-color:var(--orange);box-shadow:0 0 0 2px var(--orange-bg)}
+.wizard-card .wiz-icon{font-size:28px;margin-bottom:6px}
+.wizard-card .wiz-label{font-size:13px;font-weight:600;color:var(--text)}
+.wizard-card .wiz-count{font-size:10px;color:var(--text3);margin-top:2px}
+
+.wizard-chips{display:flex;flex-wrap:wrap;gap:8px}
+.wizard-chip{
+  padding:10px 16px;border-radius:20px;border:1px solid var(--border);
+  background:var(--white);font-size:13px;font-weight:500;cursor:pointer;
+  color:var(--text2);transition:all 0.15s;box-shadow:var(--shadow);
+}
+.wizard-chip:active{background:var(--orange);color:#fff;border-color:var(--orange)}
+
+.wizard-back{
+  font-size:13px;color:var(--orange);font-weight:600;cursor:pointer;
+  margin-bottom:12px;padding:4px 0;
+}
+.wizard-back:active{opacity:0.6}
+
+.wizard-list{display:flex;flex-direction:column;gap:6px}
+.wizard-ex{
+  padding:12px 14px;background:var(--white);border:1px solid var(--border);
+  border-radius:8px;cursor:pointer;display:flex;align-items:center;
+  justify-content:space-between;box-shadow:var(--shadow);transition:all 0.15s;
+}
+.wizard-ex:active{border-color:var(--orange);background:var(--orange-bg)}
+.wizard-ex .ex-label{font-size:14px;font-weight:500}
+.wizard-ex .ex-grupo{font-size:11px;color:var(--text3)}
+
+.selected-ex-bar{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;
+  background:var(--orange-bg);border:1px solid var(--orange);border-radius:8px;
+  margin-bottom:12px;
+}
+.selected-ex-bar .sel-name{flex:1;font-size:14px;font-weight:600;color:var(--orange)}
+.selected-ex-bar .sel-change{
+  font-size:11px;color:var(--orange);cursor:pointer;font-weight:600;
+  padding:4px 10px;border:1px solid var(--orange);border-radius:6px;
+  background:var(--white);
+}
+.selected-ex-bar .sel-change:active{background:var(--orange);color:#fff}
+
+.wizard-search{
+  width:100%;padding:10px 12px 10px 34px;border:1px solid var(--border);
+  border-radius:8px;font-size:14px;font-family:inherit;
+  background:var(--white);color:var(--text);margin-bottom:12px;
+}
+.wizard-search:focus{outline:none;border-color:var(--orange)}
+.wizard-search-wrap{position:relative}
+.wizard-search-wrap::before{
+  content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  font-size:14px;pointer-events:none;
+}
+
+.wizard-divider{
+  display:flex;align-items:center;gap:10px;margin:12px 0;
+  font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;
+}
+.wizard-divider::before,.wizard-divider::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+
 @media(min-width:480px){
   .main{padding:20px 24px 100px}
   .student-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
@@ -374,6 +444,7 @@ function renderStudents() {
     return `<div class="student-card" onclick="selectStudent(${i})">
       <div class="initials">${initials}</div>
       <div class="name">${s.nome}</div>
+      <div class="obj">${s.id}</div>
       ${s.objetivo ? `<div class="obj">${s.objetivo}</div>` : ''}
     </div>`;
   }).join('');
@@ -404,7 +475,7 @@ function setTreino(t) {
 // ── Load Today's entries ──
 async function loadToday() {
   try {
-    todayEntries = await api('today', { aluno: currentStudent.nome });
+    todayEntries = await api('today', { aluno: currentStudent.id });
     if (todayEntries.length > 0) {
       currentTreino = todayEntries[0].treino || 'A';
       renderTreinoPills();
@@ -460,57 +531,249 @@ function renderExercises() {
   }).join('');
 }
 
+// ── Region / Group mapping ──
+const REGIONS = [
+  { key: 'superior', label: 'Superior', icon: '💪', keywords: ['peito','peitoral','costas','dorsal','ombro','deltóide','deltoide','bíceps','biceps','tríceps','triceps','antebraço','antebraco','trapézio','trapezio'] },
+  { key: 'inferior', label: 'Inferior', icon: '🦵', keywords: ['quadríceps','quadriceps','posterior','glúteo','gluteo','panturrilha','adutor','abdutor','perna','coxa'] },
+  { key: 'core', label: 'Core', icon: '🎯', keywords: ['abdômen','abdomen','oblíquo','obliquo','lombar','core'] },
+  { key: 'cardio', label: 'Cardio', icon: '🏃', keywords: ['cardio','funcional','full body','alongamento','aerób','aerob'] },
+];
+
+function getRegion(grupo) {
+  const g = (grupo || '').toLowerCase();
+  for (const r of REGIONS) {
+    if (r.keywords.some(k => g.includes(k))) return r.key;
+  }
+  return 'outros';
+}
+
+function getExercisesByRegion(regionKey) {
+  return exercises.filter(e => getRegion(e.grupo) === regionKey);
+}
+
+function getGroupsForRegion(regionKey) {
+  const exs = getExercisesByRegion(regionKey);
+  const groups = [...new Set(exs.map(e => e.grupo).filter(Boolean))].sort();
+  return groups;
+}
+
+let wizardSelectedExercise = '';
+
 // ── Add Exercise ──
 function showAddForm() {
   if (isAdding) return;
   isAdding = true;
   document.getElementById('fab').style.display = 'none';
   document.getElementById('emptyState').style.display = 'none';
+  wizardSelectedExercise = '';
 
   const container = document.getElementById('addFormContainer');
   container.innerHTML = `
     <div class="add-form" id="addForm">
       <h3>NOVO EXERCÍCIO</h3>
-      <div class="field" style="position:relative">
-        <label>Exercício</label>
-        <input type="text" id="fExercicio" placeholder="Digite ou selecione..." autocomplete="off" oninput="filterExercises(this.value)">
-        <div class="autocomplete-list" id="autoList" style="display:none"></div>
-      </div>
-      <div class="row-fields">
-        <div class="field"><label>Séries</label><input type="number" id="fSeries" placeholder="4" inputmode="numeric"></div>
-        <div class="field"><label>Reps</label><input type="number" id="fReps" placeholder="12" inputmode="numeric"></div>
-        <div class="field"><label>Carga (kg)</label><input type="number" id="fCarga" placeholder="0" inputmode="decimal" step="0.5"></div>
-      </div>
-      <div class="row-fields-2">
-        <div class="field"><label>Descanso (seg)</label><input type="number" id="fDescanso" placeholder="60" inputmode="numeric"></div>
-        <div class="field"><label>Duração (min)</label><input type="number" id="fDuracao" placeholder="" inputmode="numeric"></div>
-      </div>
-      <div class="field">
-        <label>RPE (esforço percebido)</label>
-        <div class="rpe-row" id="rpeRow">
-          ${[1,2,3,4,5,6,7,8,9,10].map(n => {
-            const cls = n <= 4 ? 's-low' : n <= 7 ? 's-mid' : 's-high';
-            return `<div class="rpe-opt ${cls}" data-v="${n}" onclick="selectRPE(${n})">${n}</div>`;
-          }).join('')}
+
+      <!-- Wizard: pick exercise -->
+      <div id="wizardPicker">
+        <div class="wizard-search-wrap">
+          <input type="text" class="wizard-search" id="fSearch" placeholder="Buscar exercício..." autocomplete="off" oninput="wizardSearch(this.value)">
+        </div>
+        <div id="searchResults" style="display:none"></div>
+
+        <!-- Step 1: Regions -->
+        <div id="wizStep1">
+          <div class="wizard-divider">ou escolha por região</div>
+          <div class="wizard-grid" id="regionGrid"></div>
+        </div>
+
+        <!-- Step 2: Groups -->
+        <div id="wizStep2" style="display:none">
+          <div class="wizard-back" onclick="wizardToStep(1)">← Regiões</div>
+          <p class="wizard-label" id="wizStep2Label"></p>
+          <div class="wizard-chips" id="groupChips"></div>
+        </div>
+
+        <!-- Step 3: Exercises -->
+        <div id="wizStep3" style="display:none">
+          <div class="wizard-back" onclick="wizardToStep(2)">← Grupos</div>
+          <p class="wizard-label" id="wizStep3Label"></p>
+          <div class="wizard-list" id="exercisePickList"></div>
         </div>
       </div>
-      <div class="field"><label>Observações</label><input type="text" id="fObs" placeholder="PR, dor, ajuste..."></div>
-      <button class="btn-save" id="btnSave" onclick="saveExercise()">Salvar Exercício</button>
-      <button class="btn-cancel" onclick="hideAddForm()">Cancelar</button>
+
+      <!-- Data form (hidden until exercise selected) -->
+      <div id="dataForm" style="display:none">
+        <div class="selected-ex-bar">
+          <div class="sel-name" id="selExName"></div>
+          <div class="sel-change" onclick="wizardReset()">Trocar</div>
+        </div>
+        <div class="row-fields">
+          <div class="field"><label>Séries</label><input type="number" id="fSeries" placeholder="4" inputmode="numeric"></div>
+          <div class="field"><label>Reps</label><input type="number" id="fReps" placeholder="12" inputmode="numeric"></div>
+          <div class="field"><label>Carga (kg)</label><input type="number" id="fCarga" placeholder="0" inputmode="decimal" step="0.5"></div>
+        </div>
+        <div class="row-fields-2">
+          <div class="field"><label>Descanso (seg)</label><input type="number" id="fDescanso" placeholder="60" inputmode="numeric"></div>
+          <div class="field"><label>Duração (min)</label><input type="number" id="fDuracao" placeholder="" inputmode="numeric"></div>
+        </div>
+        <div class="field">
+          <label>RPE (esforço percebido)</label>
+          <div class="rpe-row" id="rpeRow">
+            ${[1,2,3,4,5,6,7,8,9,10].map(n => {
+              const cls = n <= 4 ? 's-low' : n <= 7 ? 's-mid' : 's-high';
+              return `<div class="rpe-opt ${cls}" data-v="${n}" onclick="selectRPE(${n})">${n}</div>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="field"><label>Observações</label><input type="text" id="fObs" placeholder="PR, dor, ajuste..."></div>
+        <button class="btn-save" id="btnSave" onclick="saveExercise()">Salvar Exercício</button>
+        <button class="btn-cancel" onclick="hideAddForm()">Cancelar</button>
+      </div>
+
+      <!-- Cancel on wizard screen -->
+      <div id="wizardCancel">
+        <button class="btn-cancel" onclick="hideAddForm()" style="margin-top:8px">Cancelar</button>
+      </div>
     </div>
   `;
 
-  // Scroll to form
-  setTimeout(() => {
-    document.getElementById('addForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    document.getElementById('fExercicio').focus();
-  }, 100);
+  renderRegionGrid();
 
-  // Pre-fill from last exercise
+  setTimeout(() => {
+    document.getElementById('addForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('fSearch').focus();
+  }, 100);
+}
+
+function renderRegionGrid() {
+  const grid = document.getElementById('regionGrid');
+  // Count exercises per region
+  const counts = {};
+  REGIONS.forEach(r => counts[r.key] = getExercisesByRegion(r.key).length);
+  // Add "outros" if any
+  const outrosCount = exercises.filter(e => getRegion(e.grupo) === 'outros').length;
+
+  grid.innerHTML = REGIONS.map(r =>
+    counts[r.key] > 0 ? `<div class="wizard-card" onclick="wizardPickRegion('${r.key}')">
+      <div class="wiz-icon">${r.icon}</div>
+      <div class="wiz-label">${r.label}</div>
+      <div class="wiz-count">${counts[r.key]} exercícios</div>
+    </div>` : ''
+  ).join('') + (outrosCount > 0 ? `<div class="wizard-card" onclick="wizardPickRegion('outros')">
+    <div class="wiz-icon">📋</div>
+    <div class="wiz-label">Outros</div>
+    <div class="wiz-count">${outrosCount} exercícios</div>
+  </div>` : '');
+}
+
+let wizardCurrentRegion = '';
+let wizardCurrentGroup = '';
+
+function wizardPickRegion(regionKey) {
+  wizardCurrentRegion = regionKey;
+  const groups = getGroupsForRegion(regionKey);
+
+  // If only one group or no groups, skip to exercise list
+  if (groups.length <= 1) {
+    wizardCurrentGroup = groups[0] || '';
+    wizardShowExercises(regionKey, wizardCurrentGroup);
+    return;
+  }
+
+  const region = REGIONS.find(r => r.key === regionKey);
+  document.getElementById('wizStep2Label').textContent = (region ? region.label : 'Outros') + ' — Grupo muscular';
+  document.getElementById('groupChips').innerHTML = groups.map(g => {
+    const count = exercises.filter(e => e.grupo === g && getRegion(e.grupo) === regionKey).length;
+    return `<div class="wizard-chip" onclick="wizardPickGroup('${g.replace(/'/g, "\\'")}')">${g} <span style="color:var(--text3);font-size:11px">(${count})</span></div>`;
+  }).join('');
+
+  document.getElementById('wizStep1').style.display = 'none';
+  document.getElementById('wizStep2').style.display = 'block';
+  document.getElementById('wizStep3').style.display = 'none';
+  document.getElementById('fSearch').style.display = 'none';
+  document.getElementById('searchResults').style.display = 'none';
+}
+
+function wizardPickGroup(group) {
+  wizardCurrentGroup = group;
+  wizardShowExercises(wizardCurrentRegion, group);
+}
+
+function wizardShowExercises(regionKey, group) {
+  let exs;
+  if (group) {
+    exs = exercises.filter(e => e.grupo === group);
+  } else {
+    exs = getExercisesByRegion(regionKey);
+  }
+  exs.sort((a, b) => a.nome.localeCompare(b.nome));
+
+  const region = REGIONS.find(r => r.key === regionKey);
+  const label = group || (region ? region.label : 'Outros');
+  document.getElementById('wizStep3Label').textContent = label;
+  document.getElementById('exercisePickList').innerHTML = exs.map(e =>
+    `<div class="wizard-ex" onclick="wizardSelectExercise('${e.nome.replace(/'/g, "\\'")}')">
+      <span class="ex-label">${e.nome}</span>
+      <span class="ex-grupo">${e.grupo}</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('wizStep1').style.display = 'none';
+  document.getElementById('wizStep2').style.display = 'none';
+  document.getElementById('wizStep3').style.display = 'block';
+  document.getElementById('fSearch').style.display = 'none';
+  document.getElementById('searchResults').style.display = 'none';
+}
+
+function wizardToStep(step) {
+  document.getElementById('wizStep1').style.display = step === 1 ? 'block' : 'none';
+  document.getElementById('wizStep2').style.display = step === 2 ? 'block' : 'none';
+  document.getElementById('wizStep3').style.display = 'none';
+  document.getElementById('fSearch').style.display = step === 1 ? 'block' : 'none';
+  document.getElementById('searchResults').style.display = 'none';
+  if (step === 1) document.getElementById('fSearch').value = '';
+}
+
+function wizardSelectExercise(name) {
+  wizardSelectedExercise = name;
+  document.getElementById('selExName').textContent = name;
+  document.getElementById('wizardPicker').style.display = 'none';
+  document.getElementById('wizardCancel').style.display = 'none';
+  document.getElementById('dataForm').style.display = 'block';
+
+  // Pre-fill descanso from last entry
   if (todayEntries.length > 0) {
     const last = todayEntries[todayEntries.length - 1];
     document.getElementById('fDescanso').value = last.descanso || '';
   }
+
+  setTimeout(() => {
+    document.getElementById('dataForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('fSeries').focus();
+  }, 100);
+}
+
+function wizardReset() {
+  wizardSelectedExercise = '';
+  document.getElementById('wizardPicker').style.display = 'block';
+  document.getElementById('wizardCancel').style.display = 'block';
+  document.getElementById('dataForm').style.display = 'none';
+  wizardToStep(1);
+  renderRegionGrid();
+}
+
+function wizardSearch(val) {
+  const results = document.getElementById('searchResults');
+  if (!val || val.length < 2) { results.style.display = 'none'; return; }
+  const lower = val.toLowerCase();
+  const matches = exercises.filter(e => e.nome.toLowerCase().includes(lower)).slice(0, 8);
+  if (matches.length === 0) { results.style.display = 'none'; return; }
+  results.style.display = 'block';
+  results.innerHTML = '<div class="wizard-list">' + matches.map(e =>
+    `<div class="wizard-ex" onclick="wizardSelectExercise('${e.nome.replace(/'/g, "\\'")}')">
+      <span class="ex-label">${e.nome}</span>
+      <span class="ex-grupo">${e.grupo}</span>
+    </div>`
+  ).join('') + '</div>';
 }
 
 function hideAddForm() {
@@ -528,40 +791,22 @@ function selectRPE(n) {
   });
 }
 
-function filterExercises(val) {
-  const list = document.getElementById('autoList');
-  if (!val || val.length < 1) { list.style.display = 'none'; return; }
-  const lower = val.toLowerCase();
-  const matches = exercises.filter(e => e.nome.toLowerCase().includes(lower)).slice(0, 8);
-  if (matches.length === 0) { list.style.display = 'none'; return; }
-  list.style.display = 'block';
-  list.innerHTML = matches.map(e =>
-    `<div class="item" onclick="pickExercise('${e.nome.replace(/'/g,"\\'")}')">${e.nome}<span class="grupo">${e.grupo}</span></div>`
-  ).join('');
-}
-
-function pickExercise(name) {
-  document.getElementById('fExercicio').value = name;
-  document.getElementById('autoList').style.display = 'none';
-  document.getElementById('fSeries').focus();
-}
-
-// Close autocomplete on outside click
+// Close search results on outside click
 document.addEventListener('click', e => {
-  if (!e.target.closest('.field')) {
-    const l = document.getElementById('autoList');
-    if (l) l.style.display = 'none';
+  if (!e.target.closest('.wizard-search-wrap') && !e.target.closest('.wizard-list')) {
+    const r = document.getElementById('searchResults');
+    if (r) r.style.display = 'none';
   }
 });
 
 async function saveExercise() {
-  const exercicio = document.getElementById('fExercicio').value.trim();
-  if (!exercicio) return toast('Digite o nome do exercício', true);
+  const exercicio = wizardSelectedExercise;
+  if (!exercicio) return toast('Selecione um exercício', true);
 
   const data = {
     action: 'add',
     data: formatDateISO(new Date()),
-    aluno: currentStudent.nome,
+    aluno: currentStudent.id,
     treino: currentTreino,
     exercicio,
     series: parseInt(document.getElementById('fSeries').value) || 0,

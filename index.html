@@ -176,7 +176,8 @@ tbody tr:hover{background:#fafafa}
     <p>Para acessar seu relatório, use o link que o Gui enviou pra você.</p>
     <div class="setup-box">
       <h3>Formato do link</h3>
-      <code>guiduarte-personal.github.io/meu-treino/?api=URL&aluno=SeuNome</code>
+      <code>guiduarte-personal.github.io/meu-treino/?api=URL&aluno=Nome1234</code>
+      <p style="font-size:11px;color:var(--text3);margin-top:6px">O identificador é seu primeiro nome + 4 últimos dígitos do telefone.</p>
     </div>
   </div>
 
@@ -265,6 +266,8 @@ tbody tr:hover{background:#fafafa}
 const params = new URLSearchParams(window.location.search);
 const API_URL = params.get('api') || params.get('csv') || '';
 const alunoName = params.get('aluno') || '';
+// Extract display name: strip trailing digits from id (e.g. "Joao1234" → "Joao")
+const alunoDisplay = alunoName.replace(/\d+$/, '') || alunoName;
 let allData = [];
 let filteredData = [];
 let charts = [];
@@ -396,12 +399,12 @@ function fmtDate(d) {
 function render() {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('report').style.display = 'block';
-  document.title = `${alunoName} — GUI Personal`;
+  document.title = `${alunoDisplay} — GUI Personal`;
 
   const data = filteredData;
 
   // Hero
-  document.getElementById('heroName').textContent = alunoName.toUpperCase();
+  document.getElementById('heroName').textContent = alunoDisplay.toUpperCase();
   const dates = [...new Set(data.map(r => r.data))].sort();
   document.getElementById('heroPeriod').textContent = dates.length ?
     `${fmtDate(dates[0])} — ${fmtDate(dates[dates.length - 1])}` : 'Sem dados no período';
