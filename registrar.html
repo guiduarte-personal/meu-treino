@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>GUI Personal — Registrar Treino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#f3f3f3;--white:#ffffff;--text:#111111;--text2:#444444;--text3:#888888;
+  --border:#e2e2e2;--border2:#d0d0d0;--orange:#e8750a;--orange-bg:#fff4eb;
+  --orange-light:#ffecd6;--green:#06d6a0;--green-bg:#e6fbf5;
+  --red:#e63946;--red-bg:#fde8ea;--blue:#3a86ff;--blue-bg:#eaf1ff;
+  --yellow:#f5a623;--radius:12px;--shadow:0 1px 3px rgba(0,0,0,0.06);
+}
+html{height:100%;overflow:hidden}
+body{
+  font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
+  height:100%;overflow:hidden;display:flex;flex-direction:column;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Top Bar ── */
+.topbar{
+  background:var(--white);border-bottom:1px solid var(--border);
+  padding:12px 16px;display:flex;align-items:center;gap:12px;
+  flex-shrink:0;z-index:100;
+}
+.topbar .logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--text)}
+.topbar .logo span{color:var(--orange)}
+.topbar .back{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+  background:var(--white);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:16px;color:var(--text2);flex-shrink:0;
+}
+.topbar .back:active{background:var(--bg)}
+.topbar .info{flex:1;min-width:0}
+.topbar .info h2{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .info p{font-size:11px;color:var(--text3)}
+
+/* ── Main scroll area ── */
+.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 100px}
+
+/* ── Setup Screen ── */
+.setup{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:60vh;gap:16px;text-align:center;padding:20px;
+}
+.setup .logo-big{font-family:'Bebas Neue',sans-serif;font-size:40px;letter-spacing:4px}
+.setup .logo-big span{color:var(--orange)}
+.setup p{color:var(--text2);font-size:13px;max-width:400px;line-height:1.6}
+.setup input{
+  width:100%;max-width:400px;padding:14px 16px;border:1px solid var(--border);
+  border-radius:var(--radius);font-size:14px;font-family:inherit;
+  background:var(--white);color:var(--text);
+}
+.setup input:focus{outline:none;border-color:var(--orange)}
+.setup button{
+  background:var(--orange);color:#fff;border:none;padding:14px 40px;
+  border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;
+  font-family:inherit;width:100%;max-width:400px;
+}
+.setup button:active{opacity:0.85}
+
+/* ── Student Selection ── */
+.student-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.student-card{
+  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 12px;text-align:center;cursor:pointer;
+  transition:border-color 0.15s,box-shadow 0.15s;box-shadow:var(--shadow);
+}
+.student-card:active{border-color:var(--orange);box-shadow:0 0 0 2px var(--orange-bg)}
+.student-card .initials{
+  width:44px;height:44px;border-radius:50%;background:var(--orange-bg);
+  color:var(--orange);font-weight:700;font-size:16px;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 10px;
+}
+.student-card .name{font-size:14px;font-weight:600}
+.student-card .obj{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ── Session Header ── */
+.session-header{
+  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);
+}
+.session-header .row{display:flex;gap:8px;align-items:center}
+.session-header .date{
+  font-size:13px;color:var(--text2);padding:6px 12px;
+  background:var(--bg);border-radius:8px;border:1px solid var(--border);flex:1;
+  text-align:center;font-weight:500;
+}
+.treino-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.treino-pill{
+  padding:6px 14px;border-radius:20px;border:1px solid var(--border);
+  font-size:13px;font-weight:500;cursor:pointer;background:var(--white);
+  color:var(--text2);transition:all 0.15s;
+}
+.treino-pill.active{background:var(--orange);color:#fff;border-color:var(--orange)}
+.treino-pill:active{opacity:0.8}
+
+/* ── Exercise Cards (logged) ── */
+.exercise-card{
+  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:8px;box-shadow:var(--shadow);
+  position:relative;
+}
+.exercise-card .ex-header{display:flex;align-items:center;justify-content:space-between}
+.exercise-card .ex-name{font-size:14px;font-weight:600}
+.exercise-card .ex-summary{font-size:12px;color:var(--text2);margin-top:4px}
+.exercise-card .ex-badges{display:flex;gap:6px;margin-top:6px}
+.ex-badge{
+  font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;
+}
+.ex-badge.rpe{background:var(--orange-bg);color:var(--orange)}
+.ex-badge.obs{background:var(--blue-bg);color:var(--blue)}
+.ex-badge.pr{background:var(--yellow);color:#000}
+.exercise-card .ex-actions{display:flex;gap:6px}
+.ex-btn{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+  background:var(--white);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:12px;color:var(--text3);
+}
+.ex-btn:active{background:var(--bg)}
+.ex-btn.del:active{background:var(--red-bg);color:var(--red)}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px}
+.empty .icon{font-size:36px;margin-bottom:12px;opacity:0.5}
+
+/* ── Add Exercise Form ── */
+.add-form{
+  background:var(--white);border:2px solid var(--orange);border-radius:var(--radius);
+  padding:16px;margin-bottom:8px;box-shadow:0 4px 12px rgba(232,117,10,0.1);
+}
+.add-form h3{font-size:13px;color:var(--orange);font-weight:600;margin-bottom:12px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+.field input,.field select{
+  width:100%;padding:10px 12px;border:1px solid var(--border);
+  border-radius:8px;font-size:14px;font-family:inherit;
+  background:var(--white);color:var(--text);
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--orange)}
+.field input[type="number"]{text-align:center;-moz-appearance:textfield}
+.field input::-webkit-outer-spin-button,.field input::-webkit-inner-spin-button{-webkit-appearance:none}
+.row-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.row-fields-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.autocomplete-list{
+  position:absolute;left:0;right:0;top:100%;background:var(--white);
+  border:1px solid var(--border);border-radius:0 0 8px 8px;max-height:180px;
+  overflow-y:auto;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,0.1);
+}
+.autocomplete-list .item{
+  padding:10px 12px;font-size:13px;cursor:pointer;
+  border-bottom:1px solid var(--bg);
+}
+.autocomplete-list .item:active,.autocomplete-list .item:hover{background:var(--orange-bg)}
+.autocomplete-list .item .grupo{font-size:10px;color:var(--text3);margin-left:6px}
+.btn-save{
+  width:100%;padding:12px;border:none;border-radius:8px;
+  background:var(--orange);color:#fff;font-size:14px;font-weight:600;
+  cursor:pointer;font-family:inherit;margin-top:4px;
+}
+.btn-save:active{opacity:0.85}
+.btn-save:disabled{opacity:0.4;cursor:not-allowed}
+.btn-cancel{
+  width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--white);color:var(--text2);font-size:13px;
+  cursor:pointer;font-family:inherit;margin-top:6px;
+}
+
+/* ── FAB ── */
+.fab{
+  position:fixed;bottom:24px;right:20px;width:56px;height:56px;
+  border-radius:50%;background:var(--orange);color:#fff;
+  border:none;font-size:28px;cursor:pointer;
+  box-shadow:0 4px 14px rgba(232,117,10,0.35);
+  display:flex;align-items:center;justify-content:center;
+  z-index:90;transition:transform 0.15s;
+}
+.fab:active{transform:scale(0.92)}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:var(--text);color:var(--white);padding:10px 20px;
+  border-radius:20px;font-size:13px;font-weight:500;
+  z-index:200;opacity:0;transition:opacity 0.3s;pointer-events:none;
+}
+.toast.show{opacity:1}
+.toast.error{background:var(--red)}
+
+/* ── Session stats mini ── */
+.session-stats{
+  display:flex;gap:8px;margin-bottom:12px;
+}
+.mini-stat{
+  flex:1;background:var(--white);border:1px solid var(--border);
+  border-radius:8px;padding:8px;text-align:center;box-shadow:var(--shadow);
+}
+.mini-stat .val{font-size:18px;font-weight:700;font-family:'Bebas Neue',sans-serif;color:var(--orange)}
+.mini-stat .lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px}
+
+/* ── Screen visibility ── */
+.screen{display:none}
+.screen.active{display:block}
+
+/* ── RPE selector ── */
+.rpe-row{display:flex;gap:4px;flex-wrap:wrap}
+.rpe-opt{
+  width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  font-weight:600;cursor:pointer;background:var(--white);color:var(--text2);
+  transition:all 0.1s;
+}
+.rpe-opt:active{transform:scale(0.9)}
+.rpe-opt.selected{background:var(--orange);color:#fff;border-color:var(--orange)}
+.rpe-opt.s-low.selected{background:var(--green);border-color:var(--green)}
+.rpe-opt.s-mid.selected{background:var(--yellow);border-color:var(--yellow)}
+.rpe-opt.s-high.selected{background:var(--red);border-color:var(--red)}
+
+@media(min-width:480px){
+  .main{padding:20px 24px 100px}
+  .student-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div id="backBtn" class="back" style="display:none" onclick="goBack()">←</div>
+  <div class="info" id="topInfo">
+    <div class="logo">GUI <span>PERSONAL</span></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main" id="main">
+
+  <!-- Setup Screen -->
+  <div class="screen active" id="screenSetup">
+    <div class="setup">
+      <div class="logo-big">GUI <span>PERSONAL</span></div>
+      <p>Cole a URL do seu Google Apps Script para conectar à planilha.</p>
+      <input type="text" id="apiInput" placeholder="https://script.google.com/macros/s/.../exec">
+      <button onclick="saveApi()">Conectar</button>
+      <p style="font-size:11px;color:var(--text3);margin-top:12px">A URL é salva no navegador. Só precisa fazer isso uma vez.</p>
+    </div>
+  </div>
+
+  <!-- Student Selection -->
+  <div class="screen" id="screenStudents">
+    <div style="margin-bottom:16px">
+      <h2 style="font-size:16px;font-weight:600">Selecione o aluno</h2>
+      <p style="font-size:12px;color:var(--text3);margin-top:2px" id="dateLabel"></p>
+    </div>
+    <div class="student-grid" id="studentGrid"></div>
+  </div>
+
+  <!-- Active Session -->
+  <div class="screen" id="screenSession">
+    <div class="session-header">
+      <div class="row">
+        <div class="date" id="sessionDate"></div>
+      </div>
+      <div class="treino-pills" id="treinoPills"></div>
+    </div>
+    <div class="session-stats" id="sessionStats"></div>
+    <div id="exerciseList"></div>
+    <div id="addFormContainer"></div>
+    <div class="empty" id="emptyState">
+      <div class="icon">🏋️</div>
+      <p>Nenhum exercício registrado hoje.<br>Toque no <strong>+</strong> para começar.</p>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab" style="display:none" onclick="showAddForm()">+</button>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+let API_URL = localStorage.getItem('gui_api_url') || '';
+let students = [];
+let exercises = [];
+let currentStudent = null;
+let currentTreino = 'A';
+let todayEntries = [];
+let isAdding = false;
+
+// ── Init ──
+if (API_URL) {
+  showScreen('screenStudents');
+  loadStudents();
+} else {
+  showScreen('screenSetup');
+}
+
+function saveApi() {
+  const url = document.getElementById('apiInput').value.trim();
+  if (!url.includes('script.google.com')) return toast('Cole uma URL válida do Apps Script', true);
+  API_URL = url;
+  localStorage.setItem('gui_api_url', url);
+  showScreen('screenStudents');
+  loadStudents();
+}
+
+// ── Navigation ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const isSession = id === 'screenSession';
+  const isStudents = id === 'screenStudents';
+  document.getElementById('fab').style.display = isSession ? 'flex' : 'none';
+  document.getElementById('backBtn').style.display = (isSession || id === 'screenSetup' && API_URL) ? 'block' : 'none';
+  
+  if (isStudents) {
+    document.getElementById('topInfo').innerHTML = '<div class="logo">GUI <span>PERSONAL</span></div>';
+    document.getElementById('backBtn').style.display = 'none';
+    document.getElementById('dateLabel').textContent = formatDateBR(new Date());
+  }
+  if (isSession && currentStudent) {
+    document.getElementById('topInfo').innerHTML = `<h2>${currentStudent.nome}</h2><p>Sessão de hoje</p>`;
+  }
+}
+
+function goBack() {
+  if (isAdding) { hideAddForm(); return; }
+  currentStudent = null;
+  showScreen('screenStudents');
+}
+
+// ── API helpers ──
+async function api(action, params = {}) {
+  const url = new URL(API_URL);
+  url.searchParams.set('action', action);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  return res.json();
+}
+
+async function apiPost(data) {
+  await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Load Students ──
+async function loadStudents() {
+  try {
+    students = await api('students');
+    exercises = await api('exercises');
+    renderStudents();
+  } catch (e) {
+    toast('Erro ao carregar. Verifique a URL do API.', true);
+    showScreen('screenSetup');
+  }
+}
+
+function renderStudents() {
+  const grid = document.getElementById('studentGrid');
+  grid.innerHTML = students.map((s, i) => {
+    const initials = s.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    return `<div class="student-card" onclick="selectStudent(${i})">
+      <div class="initials">${initials}</div>
+      <div class="name">${s.nome}</div>
+      ${s.objetivo ? `<div class="obj">${s.objetivo}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Select Student ──
+async function selectStudent(idx) {
+  currentStudent = students[idx];
+  showScreen('screenSession');
+  document.getElementById('sessionDate').textContent = formatDateBR(new Date());
+  renderTreinoPills();
+  await loadToday();
+}
+
+// ── Treino type pills ──
+function renderTreinoPills() {
+  const pills = document.getElementById('treinoPills');
+  pills.innerHTML = ['A','B','C','D','E','F'].map(t =>
+    `<div class="treino-pill ${t === currentTreino ? 'active' : ''}" onclick="setTreino('${t}')">${t}</div>`
+  ).join('');
+}
+
+function setTreino(t) {
+  currentTreino = t;
+  renderTreinoPills();
+}
+
+// ── Load Today's entries ──
+async function loadToday() {
+  try {
+    todayEntries = await api('today', { aluno: currentStudent.nome });
+    if (todayEntries.length > 0) {
+      currentTreino = todayEntries[0].treino || 'A';
+      renderTreinoPills();
+    }
+    renderExercises();
+  } catch (e) {
+    toast('Erro ao carregar treino de hoje', true);
+  }
+}
+
+function renderExercises() {
+  const list = document.getElementById('exerciseList');
+  const empty = document.getElementById('emptyState');
+  const stats = document.getElementById('sessionStats');
+
+  if (todayEntries.length === 0) {
+    list.innerHTML = '';
+    stats.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  // Mini stats
+  const totalVol = todayEntries.reduce((s, e) => s + (e.series * e.reps * e.carga), 0);
+  const exCount = todayEntries.length;
+  const avgRpe = todayEntries.filter(e => e.rpe > 0);
+  const rpe = avgRpe.length ? (avgRpe.reduce((s, e) => s + e.rpe, 0) / avgRpe.length).toFixed(1) : '—';
+  stats.innerHTML = `
+    <div class="mini-stat"><div class="val">${exCount}</div><div class="lbl">Exercícios</div></div>
+    <div class="mini-stat"><div class="val">${(totalVol/1000).toFixed(1)}t</div><div class="lbl">Volume</div></div>
+    <div class="mini-stat"><div class="val">${rpe}</div><div class="lbl">RPE Médio</div></div>
+  `;
+
+  list.innerHTML = todayEntries.map((e, i) => {
+    const isPR = e.obs?.toLowerCase().includes('pr');
+    return `<div class="exercise-card">
+      <div class="ex-header">
+        <div>
+          <div class="ex-name">${e.exercicio}</div>
+          <div class="ex-summary">${e.series}×${e.reps} @ ${e.carga}kg${e.descanso ? ` · ${e.descanso}s desc.` : ''}</div>
+          <div class="ex-badges">
+            ${e.rpe ? `<span class="ex-badge rpe">RPE ${e.rpe}</span>` : ''}
+            ${isPR ? '<span class="ex-badge pr">PR!</span>' : ''}
+            ${e.obs && !isPR ? `<span class="ex-badge obs">${e.obs.substring(0,25)}</span>` : ''}
+          </div>
+        </div>
+        <div class="ex-actions">
+          <button class="ex-btn del" onclick="deleteExercise(${e.rowIndex},${i})" title="Remover">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Add Exercise ──
+function showAddForm() {
+  if (isAdding) return;
+  isAdding = true;
+  document.getElementById('fab').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+
+  const container = document.getElementById('addFormContainer');
+  container.innerHTML = `
+    <div class="add-form" id="addForm">
+      <h3>NOVO EXERCÍCIO</h3>
+      <div class="field" style="position:relative">
+        <label>Exercício</label>
+        <input type="text" id="fExercicio" placeholder="Digite ou selecione..." autocomplete="off" oninput="filterExercises(this.value)">
+        <div class="autocomplete-list" id="autoList" style="display:none"></div>
+      </div>
+      <div class="row-fields">
+        <div class="field"><label>Séries</label><input type="number" id="fSeries" placeholder="4" inputmode="numeric"></div>
+        <div class="field"><label>Reps</label><input type="number" id="fReps" placeholder="12" inputmode="numeric"></div>
+        <div class="field"><label>Carga (kg)</label><input type="number" id="fCarga" placeholder="0" inputmode="decimal" step="0.5"></div>
+      </div>
+      <div class="row-fields-2">
+        <div class="field"><label>Descanso (seg)</label><input type="number" id="fDescanso" placeholder="60" inputmode="numeric"></div>
+        <div class="field"><label>Duração (min)</label><input type="number" id="fDuracao" placeholder="" inputmode="numeric"></div>
+      </div>
+      <div class="field">
+        <label>RPE (esforço percebido)</label>
+        <div class="rpe-row" id="rpeRow">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n => {
+            const cls = n <= 4 ? 's-low' : n <= 7 ? 's-mid' : 's-high';
+            return `<div class="rpe-opt ${cls}" data-v="${n}" onclick="selectRPE(${n})">${n}</div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="field"><label>Observações</label><input type="text" id="fObs" placeholder="PR, dor, ajuste..."></div>
+      <button class="btn-save" id="btnSave" onclick="saveExercise()">Salvar Exercício</button>
+      <button class="btn-cancel" onclick="hideAddForm()">Cancelar</button>
+    </div>
+  `;
+
+  // Scroll to form
+  setTimeout(() => {
+    document.getElementById('addForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('fExercicio').focus();
+  }, 100);
+
+  // Pre-fill from last exercise
+  if (todayEntries.length > 0) {
+    const last = todayEntries[todayEntries.length - 1];
+    document.getElementById('fDescanso').value = last.descanso || '';
+  }
+}
+
+function hideAddForm() {
+  isAdding = false;
+  document.getElementById('addFormContainer').innerHTML = '';
+  document.getElementById('fab').style.display = 'flex';
+  if (todayEntries.length === 0) document.getElementById('emptyState').style.display = 'block';
+}
+
+let selectedRPE = 0;
+function selectRPE(n) {
+  selectedRPE = n;
+  document.querySelectorAll('.rpe-opt').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.v) === n);
+  });
+}
+
+function filterExercises(val) {
+  const list = document.getElementById('autoList');
+  if (!val || val.length < 1) { list.style.display = 'none'; return; }
+  const lower = val.toLowerCase();
+  const matches = exercises.filter(e => e.nome.toLowerCase().includes(lower)).slice(0, 8);
+  if (matches.length === 0) { list.style.display = 'none'; return; }
+  list.style.display = 'block';
+  list.innerHTML = matches.map(e =>
+    `<div class="item" onclick="pickExercise('${e.nome.replace(/'/g,"\\'")}')">${e.nome}<span class="grupo">${e.grupo}</span></div>`
+  ).join('');
+}
+
+function pickExercise(name) {
+  document.getElementById('fExercicio').value = name;
+  document.getElementById('autoList').style.display = 'none';
+  document.getElementById('fSeries').focus();
+}
+
+// Close autocomplete on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.field')) {
+    const l = document.getElementById('autoList');
+    if (l) l.style.display = 'none';
+  }
+});
+
+async function saveExercise() {
+  const exercicio = document.getElementById('fExercicio').value.trim();
+  if (!exercicio) return toast('Digite o nome do exercício', true);
+
+  const data = {
+    action: 'add',
+    data: formatDateISO(new Date()),
+    aluno: currentStudent.nome,
+    treino: currentTreino,
+    exercicio,
+    series: parseInt(document.getElementById('fSeries').value) || 0,
+    reps: parseInt(document.getElementById('fReps').value) || 0,
+    carga: parseFloat(document.getElementById('fCarga').value) || 0,
+    descanso: parseInt(document.getElementById('fDescanso').value) || 0,
+    rpe: selectedRPE || 0,
+    duracao: parseInt(document.getElementById('fDuracao').value) || 0,
+    obs: document.getElementById('fObs').value.trim(),
+  };
+
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    await apiPost(data);
+    toast('Exercício salvo!');
+    hideAddForm();
+    selectedRPE = 0;
+    // Reload entries
+    await loadToday();
+  } catch (e) {
+    toast('Erro ao salvar. Tente novamente.', true);
+    btn.disabled = false;
+    btn.textContent = 'Salvar Exercício';
+  }
+}
+
+async function deleteExercise(rowIndex, idx) {
+  if (!confirm('Remover este exercício?')) return;
+  try {
+    await apiPost({ action: 'delete', rowIndex });
+    toast('Removido');
+    await loadToday();
+  } catch (e) {
+    toast('Erro ao remover', true);
+  }
+}
+
+// ── Helpers ──
+function formatDateBR(d) {
+  const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  return `${dias[d.getDay()]}, ${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function formatDateISO(d) {
+  return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+}
+
+function toast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Treino — GUI Personal</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f5f5f5;--white:#ffffff;--text:#111111;--text2:#444444;--text3:#888888;
+  --border:#e0e0e0;--orange:#e8750a;--orange-bg:#fff4eb;--orange-light:#ffecd6;
+  --green:#06d6a0;--green-bg:#e6fbf5;--red:#e63946;--red-bg:#fde8ea;
+  --blue:#3a86ff;--blue-bg:#eaf1ff;--yellow:#f5a623;--radius:12px;
+  --shadow:0 1px 4px rgba(0,0,0,0.05);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+.container{max-width:900px;margin:0 auto;padding:16px 16px 60px}
+
+/* ── Loading ── */
+#loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:16px}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{color:var(--text3);font-size:13px}
+
+/* ── Setup ── */
+#setup{display:none;min-height:70vh;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:20px}
+#setup .logo{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:4px}
+#setup .logo span{color:var(--orange)}
+#setup p{color:var(--text2);font-size:13px;max-width:450px;line-height:1.6}
+.setup-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px;max-width:500px;width:100%;text-align:left;box-shadow:var(--shadow)}
+.setup-box h3{font-size:13px;color:var(--orange);font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}
+.setup-box code{display:block;background:var(--bg);padding:8px 12px;border-radius:6px;font-size:11px;color:var(--text2);margin-top:8px;word-break:break-all}
+
+/* ── Error ── */
+#error{display:none;min-height:60vh;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px}
+#error .icon{font-size:40px;opacity:0.5}
+#error h2{font-size:18px;color:var(--red)}
+#error p{color:var(--text3);font-size:13px;max-width:450px}
+
+/* ── Report ── */
+#report{display:none}
+
+/* ── Hero ── */
+.hero{text-align:center;padding:32px 16px 28px;position:relative}
+.hero .brand{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--text3)}
+.hero .brand span{color:var(--orange)}
+.hero .aluno{font-family:'Bebas Neue',sans-serif;font-size:clamp(32px,7vw,48px);letter-spacing:2px;color:var(--text);margin-top:8px;line-height:1.1}
+.hero .period{font-size:12px;color:var(--text3);margin-top:6px;letter-spacing:0.5px}
+
+/* ── Stats ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:20px 0}
+.stat{
+  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 12px;text-align:center;box-shadow:var(--shadow);position:relative;overflow:hidden;
+}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.stat:nth-child(1)::before{background:var(--orange)}
+.stat:nth-child(2)::before{background:var(--green)}
+.stat:nth-child(3)::before{background:var(--blue)}
+.stat:nth-child(4)::before{background:var(--yellow)}
+.stat:nth-child(5)::before{background:var(--red)}
+.stat .val{font-family:'Bebas Neue',sans-serif;font-size:32px;line-height:1}
+.stat:nth-child(1) .val{color:var(--orange)}
+.stat:nth-child(2) .val{color:var(--green)}
+.stat:nth-child(3) .val{color:var(--blue)}
+.stat:nth-child(4) .val{color:var(--yellow)}
+.stat:nth-child(5) .val{color:var(--red)}
+.stat .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px;font-weight:500}
+
+/* ── Filters ── */
+.filters{
+  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:20px;box-shadow:var(--shadow);
+}
+.filters-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters-row label{font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+.filters-row input,.filters-row select{
+  padding:7px 10px;border:1px solid var(--border);border-radius:6px;
+  font-size:13px;font-family:inherit;background:var(--white);color:var(--text);
+}
+.filters-row input:focus,.filters-row select:focus{outline:none;border-color:var(--orange)}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.btn-filter{
+  padding:7px 16px;border:1px solid var(--orange);border-radius:6px;
+  background:var(--orange-bg);color:var(--orange);font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;
+}
+.btn-filter:hover{background:var(--orange);color:#fff}
+.btn-clear{
+  padding:7px 12px;border:1px solid var(--border);border-radius:6px;
+  background:var(--white);color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit;
+}
+
+/* ── Section ── */
+.section{margin-bottom:28px}
+.section-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.section-head .bar{width:3px;height:18px;background:var(--orange);border-radius:2px}
+.section-head h2{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;font-weight:400}
+.section-head .right{margin-left:auto}
+
+/* ── Charts ── */
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:10px}
+@media(max-width:480px){.chart-grid{grid-template-columns:1fr}}
+.chart-card{
+  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;box-shadow:var(--shadow);
+}
+.chart-card h3{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:500}
+.chart-card canvas{max-height:200px}
+.chart-full{
+  background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;box-shadow:var(--shadow);
+}
+.chart-full canvas{max-height:220px}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--white)}
+thead th{
+  padding:10px 12px;text-align:left;font-size:10px;text-transform:uppercase;
+  letter-spacing:0.8px;color:var(--text3);font-weight:600;
+  background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;
+}
+tbody td{padding:8px 12px;border-bottom:1px solid #f0f0f0;white-space:nowrap}
+tbody tr:hover{background:#fafafa}
+.date-cell{color:var(--orange);font-weight:600;font-size:12px}
+.set-data{text-align:center;color:var(--text2);font-variant-numeric:tabular-nums}
+.rpe{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;
+}
+.rpe-low{background:var(--green-bg);color:var(--green)}
+.rpe-mid{background:var(--orange-bg);color:var(--yellow)}
+.rpe-high{background:var(--red-bg);color:var(--red)}
+.pr{display:inline-block;background:var(--yellow);color:#000;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px}
+.obs-text{color:var(--text3);font-style:italic;font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+
+/* ── PDF button ── */
+.btn-pdf{
+  padding:8px 20px;border:1px solid var(--orange);border-radius:8px;
+  background:var(--orange-bg);color:var(--orange);font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all 0.15s;
+}
+.btn-pdf:hover{background:var(--orange);color:#fff}
+
+/* ── Footer ── */
+.footer{text-align:center;padding:28px 0;margin-top:24px;border-top:1px solid var(--border)}
+.footer .brand{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;color:var(--text3)}
+.footer .brand span{color:var(--orange)}
+.footer p{font-size:11px;color:var(--text3);margin-top:4px}
+.footer .ig{
+  display:inline-block;margin-top:10px;color:var(--orange);font-size:12px;
+  text-decoration:none;font-weight:500;border:1px solid var(--orange);
+  padding:4px 14px;border-radius:20px;transition:all 0.15s;
+}
+.footer .ig:hover{background:var(--orange);color:#fff}
+
+/* ── Print ── */
+@media print{
+  body{background:#fff}
+  .filters,.btn-pdf,.footer .ig{display:none!important}
+  .stat,.chart-card,.chart-full,.table-wrap{break-inside:avoid;box-shadow:none;border-color:#ddd}
+  .container{max-width:100%;padding:0 10px}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div id="loading"><div class="spinner"></div><p>Carregando seu treino...</p></div>
+
+  <div id="setup">
+    <div class="logo">GUI <span>PERSONAL</span></div>
+    <p>Para acessar seu relatório, use o link que o Gui enviou pra você.</p>
+    <div class="setup-box">
+      <h3>Formato do link</h3>
+      <code>guiduarte-personal.github.io/meu-treino/?api=URL&aluno=SeuNome</code>
+    </div>
+  </div>
+
+  <div id="error">
+    <div class="icon">😕</div>
+    <h2 id="errorTitle">Erro</h2>
+    <p id="errorMsg"></p>
+  </div>
+
+  <div id="report">
+    <div class="hero">
+      <div class="brand">GUI <span>PERSONAL</span></div>
+      <div class="aluno" id="heroName"></div>
+      <div class="period" id="heroPeriod"></div>
+    </div>
+
+    <div class="stats" id="statsGrid"></div>
+
+    <div class="filters" id="filtersBox">
+      <div class="filters-row">
+        <div class="filter-group">
+          <label>De</label>
+          <input type="date" id="fFrom">
+        </div>
+        <div class="filter-group">
+          <label>Até</label>
+          <input type="date" id="fTo">
+        </div>
+        <div class="filter-group">
+          <label>Treino</label>
+          <select id="fTreino"><option value="">Todos</option></select>
+        </div>
+        <div class="filter-group">
+          <label>Exercício</label>
+          <select id="fExercicio"><option value="">Todos</option></select>
+        </div>
+        <button class="btn-filter" onclick="applyFilters()">Filtrar</button>
+        <button class="btn-clear" onclick="clearFilters()">Limpar</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="bar"></div>
+        <h2>EVOLUÇÃO DE CARGAS</h2>
+      </div>
+      <div class="chart-grid" id="chartsContainer"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="bar"></div>
+        <h2>VOLUME POR SESSÃO</h2>
+      </div>
+      <div class="chart-full"><canvas id="volumeChart"></canvas></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="bar"></div>
+        <h2>HISTÓRICO</h2>
+        <div class="right"><button class="btn-pdf" onclick="window.print()">📄 Exportar PDF</button></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Data</th><th>Treino</th><th>Exercício</th>
+            <th style="text-align:center">Séries</th><th style="text-align:center">Reps</th>
+            <th style="text-align:center">Carga</th><th style="text-align:center">Desc.</th>
+            <th style="text-align:center">RPE</th><th>Obs</th>
+          </tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="brand">GUI <span>PERSONAL</span></div>
+      <p id="footerDate"></p>
+      <a class="ig" href="https://instagram.com/personalguiduarte" target="_blank">@personalguiduarte</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const API_URL = params.get('api') || params.get('csv') || '';
+const alunoName = params.get('aluno') || '';
+let allData = [];
+let filteredData = [];
+let charts = [];
+
+if (!API_URL || !alunoName) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('setup').style.display = 'flex';
+} else {
+  init();
+}
+
+async function init() {
+  try {
+    let data;
+    if (API_URL.includes('script.google.com')) {
+      const url = new URL(API_URL);
+      url.searchParams.set('action', 'history');
+      url.searchParams.set('aluno', alunoName);
+      const res = await fetch(url.toString());
+      data = await res.json();
+    } else {
+      // Fallback: CSV mode (backwards compatible)
+      const res = await fetch(API_URL);
+      const text = await res.text();
+      data = parseCSV(text);
+    }
+
+    if (data.error) throw new Error(data.error);
+    allData = Array.isArray(data) ? data : [];
+    
+    // Filter by student name for CSV mode
+    if (!API_URL.includes('script.google.com')) {
+      allData = allData.filter(r => r.aluno?.toLowerCase().trim() === alunoName.toLowerCase().trim());
+    }
+
+    if (allData.length === 0) throw new Error(`Nenhum treino encontrado para "${alunoName}".`);
+
+    filteredData = [...allData];
+    populateFilters();
+    render();
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  const map = {};
+  headers.forEach((h, i) => {
+    const l = h.toLowerCase();
+    if (l.includes('data')) map.data = i;
+    else if (l.includes('aluno')) map.aluno = i;
+    else if (l.includes('treino')) map.treino = i;
+    else if (l.includes('exerc')) map.exercicio = i;
+    else if (l.includes('séri') || l.includes('seri')) map.series = i;
+    else if (l.includes('rep')) map.reps = i;
+    else if (l.includes('carga')) map.carga = i;
+    else if (l.includes('descanso') || l.includes('desc')) map.descanso = i;
+    else if (l.includes('rpe')) map.rpe = i;
+    else if (l.includes('dura')) map.duracao = i;
+    else if (l.includes('obs')) map.obs = i;
+  });
+  return lines.slice(1).map(line => {
+    const c = csvLine(line);
+    return {
+      data: c[map.data] || '', aluno: c[map.aluno] || '', treino: c[map.treino] || '',
+      exercicio: c[map.exercicio] || '', series: parseInt(c[map.series]) || 0,
+      reps: parseInt(c[map.reps]) || 0, carga: parseFloat(c[map.carga]) || 0,
+      descanso: parseInt(c[map.descanso]) || 0, rpe: parseInt(c[map.rpe]) || 0,
+      duracao: parseInt(c[map.duracao]) || 0, obs: (c[map.obs] || '').replace(/"/g, ''),
+    };
+  });
+}
+
+function csvLine(line) {
+  const r = []; let cur = '', q = false;
+  for (const ch of line) { if (ch === '"') q = !q; else if (ch === ',' && !q) { r.push(cur.trim()); cur = ''; } else cur += ch; }
+  r.push(cur.trim()); return r;
+}
+
+function showError(msg) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error').style.display = 'flex';
+  document.getElementById('errorMsg').textContent = msg;
+}
+
+function populateFilters() {
+  const treinos = [...new Set(allData.map(r => r.treino).filter(Boolean))].sort();
+  const exercicios = [...new Set(allData.map(r => r.exercicio).filter(Boolean))].sort();
+  const selT = document.getElementById('fTreino');
+  treinos.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = `Treino ${t}`; selT.appendChild(o); });
+  const selE = document.getElementById('fExercicio');
+  exercicios.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; selE.appendChild(o); });
+}
+
+function applyFilters() {
+  const from = document.getElementById('fFrom').value;
+  const to = document.getElementById('fTo').value;
+  const treino = document.getElementById('fTreino').value;
+  const exercicio = document.getElementById('fExercicio').value;
+  filteredData = allData.filter(r => {
+    if (from && r.data < from) return false;
+    if (to && r.data > to) return false;
+    if (treino && r.treino !== treino) return false;
+    if (exercicio && r.exercicio !== exercicio) return false;
+    return true;
+  });
+  render();
+}
+
+function clearFilters() {
+  document.getElementById('fFrom').value = '';
+  document.getElementById('fTo').value = '';
+  document.getElementById('fTreino').value = '';
+  document.getElementById('fExercicio').value = '';
+  filteredData = [...allData];
+  render();
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const p = d.includes('/') ? d.split('/') : d.split('-');
+  if (p.length === 3 && p[0].length === 4) return `${p[2]}/${p[1]}/${p[0]}`;
+  return d;
+}
+
+function render() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('report').style.display = 'block';
+  document.title = `${alunoName} — GUI Personal`;
+
+  const data = filteredData;
+
+  // Hero
+  document.getElementById('heroName').textContent = alunoName.toUpperCase();
+  const dates = [...new Set(data.map(r => r.data))].sort();
+  document.getElementById('heroPeriod').textContent = dates.length ?
+    `${fmtDate(dates[0])} — ${fmtDate(dates[dates.length - 1])}` : 'Sem dados no período';
+  document.getElementById('footerDate').textContent = `Atualizado em ${new Date().toLocaleDateString('pt-BR')}`;
+
+  // Stats
+  const sessions = dates.length;
+  const vol = data.reduce((s, r) => s + r.series * r.reps * r.carga, 0);
+  const exCount = new Set(data.map(r => r.exercicio)).size;
+  const rpeArr = data.filter(r => r.rpe > 0);
+  const rpe = rpeArr.length ? (rpeArr.reduce((s, r) => s + r.rpe, 0) / rpeArr.length).toFixed(1) : '—';
+  const durArr = data.filter(r => r.duracao > 0);
+  const dur = durArr.length ? Math.round(durArr.reduce((s, r) => s + r.duracao, 0) / durArr.length) : null;
+
+  let html = `
+    <div class="stat"><div class="val">${sessions}</div><div class="lbl">Treinos</div></div>
+    <div class="stat"><div class="val">${(vol/1000).toFixed(1)}t</div><div class="lbl">Volume Total</div></div>
+    <div class="stat"><div class="val">${exCount}</div><div class="lbl">Exercícios</div></div>
+    <div class="stat"><div class="val">${rpe}</div><div class="lbl">RPE Médio</div></div>`;
+  if (dur) html += `<div class="stat"><div class="val">${dur}'</div><div class="lbl">Duração Média</div></div>`;
+  document.getElementById('statsGrid').innerHTML = html;
+
+  // Destroy old charts
+  charts.forEach(c => c.destroy());
+  charts = [];
+
+  // Chart.js config
+  Chart.defaults.color = '#888888';
+  Chart.defaults.borderColor = 'rgba(0,0,0,0.06)';
+  Chart.defaults.font.family = "'Inter',sans-serif";
+  Chart.defaults.font.size = 11;
+
+  const palette = ['#e8750a', '#06d6a0', '#3a86ff', '#f5a623', '#e63946', '#a855f7'];
+
+  // Evolution charts
+  const freq = {};
+  data.forEach(r => { if (r.carga > 0) freq[r.exercicio] = (freq[r.exercicio] || 0) + 1; });
+  const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 6).map(e => e[0]);
+  const ctr = document.getElementById('chartsContainer');
+  ctr.innerHTML = '';
+
+  top.forEach((ex, idx) => {
+    const exData = data.filter(r => r.exercicio === ex && r.carga > 0);
+    if (exData.length < 2) return;
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    card.innerHTML = `<h3>${ex}</h3><canvas id="ec${idx}"></canvas>`;
+    ctr.appendChild(card);
+    const color = palette[idx % palette.length];
+    charts.push(new Chart(document.getElementById(`ec${idx}`), {
+      type: 'line',
+      data: {
+        labels: exData.map(r => fmtDate(r.data)),
+        datasets: [{
+          data: exData.map(r => r.carga), borderColor: color,
+          backgroundColor: color + '15', fill: true, tension: 0.35,
+          pointRadius: 4, pointBackgroundColor: color,
+          pointBorderColor: '#fff', pointBorderWidth: 2, borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { display: false },
+          tooltip: { backgroundColor: '#fff', titleColor: '#111', bodyColor: '#444',
+            borderColor: '#e0e0e0', borderWidth: 1, padding: 10,
+            callbacks: { label: c => ` ${c.parsed.y} kg` }
+          }
+        },
+        scales: {
+          y: { beginAtZero: false, ticks: { callback: v => v + 'kg', font: { size: 10 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+        }
+      }
+    }));
+  });
+
+  // Volume chart
+  const sessVol = {};
+  data.forEach(r => {
+    if (!sessVol[r.data]) sessVol[r.data] = { vol: 0, t: r.treino };
+    sessVol[r.data].vol += r.series * r.reps * r.carga;
+  });
+  const vDates = Object.keys(sessVol).sort();
+
+  charts.push(new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: {
+      labels: vDates.map(d => fmtDate(d) + (sessVol[d].t ? ` (${sessVol[d].t})` : '')),
+      datasets: [{
+        data: vDates.map(d => sessVol[d].vol),
+        backgroundColor: vDates.map((_, i) => palette[i % palette.length] + '50'),
+        borderColor: vDates.map((_, i) => palette[i % palette.length]),
+        borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false },
+        tooltip: { backgroundColor: '#fff', titleColor: '#111', bodyColor: '#444',
+          borderColor: '#e0e0e0', borderWidth: 1,
+          callbacks: { label: c => ` ${c.parsed.y.toLocaleString('pt-BR')} kg` }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => (v / 1000).toFixed(0) + 't', font: { size: 10 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+      }
+    }
+  }));
+
+  // History table
+  const tbody = document.getElementById('historyBody');
+  tbody.innerHTML = '';
+  let lastDate = '';
+  const sorted = [...data].sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  sorted.forEach(r => {
+    const showDate = r.data !== lastDate;
+    lastDate = r.data;
+    const rCls = r.rpe >= 8 ? 'rpe-high' : r.rpe >= 5 ? 'rpe-mid' : 'rpe-low';
+    const hasObs = r.obs?.trim();
+    const isPR = hasObs && r.obs.toLowerCase().includes('pr');
+    tbody.innerHTML += `<tr>
+      <td>${showDate ? `<span class="date-cell">${fmtDate(r.data)}</span>` : ''}</td>
+      <td>${r.treino}</td>
+      <td>${r.exercicio}${isPR ? '<span class="pr">PR</span>' : ''}</td>
+      <td class="set-data">${r.series || '—'}</td>
+      <td class="set-data">${r.reps || '—'}</td>
+      <td class="set-data">${r.carga ? r.carga + 'kg' : '—'}</td>
+      <td class="set-data">${r.descanso ? r.descanso + 's' : '—'}</td>
+      <td style="text-align:center">${r.rpe ? `<span class="rpe ${rCls}">${r.rpe}</span>` : '—'}</td>
+      <td><span class="obs-text">${hasObs ? r.obs : ''}</span></td>
+    </tr>`;
+  });
+}
+</script>
+</body>
+</html>
