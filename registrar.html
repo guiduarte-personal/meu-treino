@@ -497,6 +497,7 @@ function renderStudents() {
         ${s.objetivo ? `<div class="obj">${s.objetivo}</div>` : ''}
       </div>
       <div class="card-actions">
+        <button class="btn-edit" onclick="event.stopPropagation();openDashboard(${i})">Painel</button>
         <button class="btn-edit" onclick="event.stopPropagation();showStudentForm(${i})">Editar</button>
         <button class="btn-del" onclick="event.stopPropagation();deleteStudentConfirm(${i})">Apagar</button>
       </div>
@@ -587,6 +588,13 @@ async function deleteStudentConfirm(idx) {
   } catch (e) {
     toast('Erro ao remover aluno', true);
   }
+}
+
+function openDashboard(idx) {
+  const s = students[idx];
+  const base = window.location.origin + window.location.pathname.replace('registrar.html', '');
+  const url = `${base}?api=${encodeURIComponent(API_URL)}&aluno=${encodeURIComponent(s.id)}`;
+  window.open(url, '_blank');
 }
 
 // ── Select Student ──
