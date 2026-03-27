@@ -63,6 +63,15 @@ function doPost(e) {
       case 'deleteStudent':
         deleteStudent(ss, data.rowIndex);
         return _json({ success: true });
+      case 'addExercise':
+        addExercise(ss, data);
+        return _json({ success: true });
+      case 'updateExercise':
+        updateExercise(ss, data.rowIndex, data);
+        return _json({ success: true });
+      case 'deleteExercise':
+        deleteExercise(ss, data.rowIndex);
+        return _json({ success: true });
       default:
         return _json({ error: 'Ação inválida' });
     }
@@ -109,8 +118,10 @@ function getExercises(ss) {
   if (!sheet) return [];
   const rows = sheet.getDataRange().getValues();
   return rows.slice(1)
-    .filter(r => r[0])
-    .map(r => ({
+    .map((r, i) => ({ r, rowIndex: i + 2 }))
+    .filter(({ r }) => r[0])
+    .map(({ r, rowIndex }) => ({
+      rowIndex,
       nome: r[0].toString().trim(),
       grupo: r[1] || '',
       equipamento: r[2] || '',
@@ -237,6 +248,37 @@ function updateStudent(ss, rowIndex, data) {
 function deleteStudent(ss, rowIndex) {
   const sheet = ss.getSheetByName('Alunos');
   if (!sheet) throw new Error('Aba "Alunos" não encontrada');
+  if (rowIndex < 2) throw new Error('Não é possível deletar o cabeçalho');
+  sheet.deleteRow(rowIndex);
+}
+
+// ── Exercícios CRUD ──
+
+function addExercise(ss, data) {
+  const sheet = ss.getSheetByName('Exercícios');
+  if (!sheet) throw new Error('Aba "Exercícios" não encontrada');
+  if (!data.nome) throw new Error('Nome é obrigatório');
+  sheet.appendRow([
+    data.nome || '',
+    data.grupo || '',
+    data.equipamento || '',
+  ]);
+}
+
+function updateExercise(ss, rowIndex, data) {
+  const sheet = ss.getSheetByName('Exercícios');
+  if (!sheet) throw new Error('Aba "Exercícios" não encontrada');
+  if (rowIndex < 2) throw new Error('Não é possível editar o cabeçalho');
+  sheet.getRange(rowIndex, 1, 1, 3).setValues([[
+    data.nome || '',
+    data.grupo || '',
+    data.equipamento || '',
+  ]]);
+}
+
+function deleteExercise(ss, rowIndex) {
+  const sheet = ss.getSheetByName('Exercícios');
+  if (!sheet) throw new Error('Aba "Exercícios" não encontrada');
   if (rowIndex < 2) throw new Error('Não é possível deletar o cabeçalho');
   sheet.deleteRow(rowIndex);
 }

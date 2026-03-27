@@ -340,6 +340,57 @@ body{
   content:'';flex:1;height:1px;background:var(--border);
 }
 
+/* ── Exercise Manager ── */
+.ex-manager-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.ex-manager-header h2{font-size:16px;font-weight:600}
+.btn-add-ex{
+  padding:8px 14px;border-radius:8px;border:1px solid var(--orange);
+  background:var(--orange-bg);color:var(--orange);font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;
+}
+.btn-add-ex:active{background:var(--orange);color:#fff}
+.btn-manage{
+  padding:8px 14px;border-radius:8px;border:1px solid var(--border);
+  background:var(--white);color:var(--text2);font-size:12px;font-weight:500;
+  cursor:pointer;font-family:inherit;box-shadow:var(--shadow);margin-top:12px;width:100%;
+}
+.btn-manage:active{background:var(--bg)}
+
+.ex-filter-row{display:flex;gap:8px;margin-bottom:12px}
+.ex-filter-row input{
+  flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;
+  font-size:13px;font-family:inherit;background:var(--white);color:var(--text);
+}
+.ex-filter-row input:focus{outline:none;border-color:var(--orange)}
+.ex-filter-row select{
+  padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  font-size:13px;font-family:inherit;background:var(--white);color:var(--text);
+}
+.ex-filter-row select:focus{outline:none;border-color:var(--orange)}
+
+.ex-item{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;
+  background:var(--white);border:1px solid var(--border);border-radius:8px;
+  margin-bottom:6px;box-shadow:var(--shadow);
+}
+.ex-item .ex-info{flex:1;min-width:0}
+.ex-item .ex-info .ex-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ex-item .ex-info .ex-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.ex-item .ex-actions{display:flex;gap:4px;flex-shrink:0}
+.ex-item .ex-actions button{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+  background:var(--white);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:11px;color:var(--text3);
+}
+.ex-item .ex-actions button:active{background:var(--bg)}
+.ex-item .ex-actions .del:active{background:var(--red-bg);color:var(--red)}
+
+.ex-group-label{
+  font-size:11px;color:var(--orange);font-weight:600;text-transform:uppercase;
+  letter-spacing:0.5px;padding:10px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px;
+}
+.ex-count{font-size:12px;color:var(--text3);margin-bottom:12px}
+
 @media(min-width:480px){
   .main{padding:20px 24px 100px}
   .student-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
@@ -377,6 +428,21 @@ body{
       <p style="font-size:12px;color:var(--text3);margin-top:2px" id="dateLabel"></p>
     </div>
     <div class="student-grid" id="studentGrid"></div>
+    <button class="btn-manage" onclick="showExerciseManager()">Gerenciar Exercícios</button>
+  </div>
+
+  <!-- Exercise Manager -->
+  <div class="screen" id="screenExercises">
+    <div class="ex-manager-header">
+      <h2>Exercícios</h2>
+      <button class="btn-add-ex" onclick="showExerciseForm(-1)">+ Novo</button>
+    </div>
+    <div class="ex-filter-row">
+      <input type="text" id="exFilterText" placeholder="Buscar exercício..." oninput="renderExerciseManager()">
+      <select id="exFilterGroup" onchange="renderExerciseManager()"><option value="">Todos</option></select>
+    </div>
+    <div class="ex-count" id="exCount"></div>
+    <div id="exManagerList"></div>
   </div>
 
   <!-- Active Session -->
@@ -437,9 +503,10 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
   const isSession = id === 'screenSession';
   const isStudents = id === 'screenStudents';
+  const isExercises = id === 'screenExercises';
   document.getElementById('fab').style.display = isSession ? 'flex' : 'none';
-  document.getElementById('backBtn').style.display = (isSession || id === 'screenSetup' && API_URL) ? 'block' : 'none';
-  
+  document.getElementById('backBtn').style.display = (isSession || isExercises || id === 'screenSetup' && API_URL) ? 'block' : 'none';
+
   if (isStudents) {
     document.getElementById('topInfo').innerHTML = '<div class="logo">GUI <span>PERSONAL</span></div>';
     document.getElementById('backBtn').style.display = 'none';
@@ -448,10 +515,18 @@ function showScreen(id) {
   if (isSession && currentStudent) {
     document.getElementById('topInfo').innerHTML = `<h2>${currentStudent.nome}</h2><p>Sessão de hoje</p>`;
   }
+  if (isExercises) {
+    document.getElementById('topInfo').innerHTML = '<h2>Gerenciar Exercícios</h2><p>Criar, editar e remover</p>';
+  }
 }
 
 function goBack() {
   if (isAdding) { hideAddForm(); return; }
+  const activeScreen = document.querySelector('.screen.active');
+  if (activeScreen && activeScreen.id === 'screenExercises') {
+    showScreen('screenStudents');
+    return;
+  }
   currentStudent = null;
   showScreen('screenStudents');
 }
@@ -507,6 +582,146 @@ function renderStudents() {
       <div class="plus">+</div>
       <div class="lbl">Novo Aluno</div>
     </div>`;
+}
+
+// ── Exercise Manager ──
+function showExerciseManager() {
+  showScreen('screenExercises');
+  populateExGroupFilter();
+  renderExerciseManager();
+}
+
+function populateExGroupFilter() {
+  const sel = document.getElementById('exFilterGroup');
+  const groups = [...new Set(exercises.map(e => e.grupo).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todos</option>' + groups.map(g =>
+    `<option value="${g}">${g}</option>`
+  ).join('');
+}
+
+function renderExerciseManager() {
+  const text = (document.getElementById('exFilterText')?.value || '').toLowerCase();
+  const group = document.getElementById('exFilterGroup')?.value || '';
+
+  let filtered = exercises.filter(e => {
+    if (text && !e.nome.toLowerCase().includes(text)) return false;
+    if (group && e.grupo !== group) return false;
+    return true;
+  });
+
+  document.getElementById('exCount').textContent = `${filtered.length} exercício${filtered.length !== 1 ? 's' : ''}`;
+
+  // Group by grupo
+  const grouped = {};
+  filtered.forEach(e => {
+    const g = e.grupo || 'Sem grupo';
+    if (!grouped[g]) grouped[g] = [];
+    grouped[g].push(e);
+  });
+
+  const list = document.getElementById('exManagerList');
+  const sortedGroups = Object.keys(grouped).sort();
+  list.innerHTML = sortedGroups.map(g => {
+    const items = grouped[g].sort((a, b) => a.nome.localeCompare(b.nome));
+    return `<div class="ex-group-label">${g} (${items.length})</div>` +
+      items.map(e => {
+        const idx = exercises.indexOf(e);
+        return `<div class="ex-item">
+          <div class="ex-info">
+            <div class="ex-title">${e.nome}</div>
+            <div class="ex-meta">${e.grupo}${e.equipamento ? ' · ' + e.equipamento : ''}</div>
+          </div>
+          <div class="ex-actions">
+            <button onclick="showExerciseForm(${idx})">✎</button>
+            <button class="del" onclick="deleteExerciseConfirm(${idx})">✕</button>
+          </div>
+        </div>`;
+      }).join('');
+  }).join('');
+}
+
+function showExerciseForm(idx) {
+  const isEdit = idx >= 0;
+  const e = isEdit ? exercises[idx] : {};
+  const allGroups = [...new Set(exercises.map(ex => ex.grupo).filter(Boolean))].sort();
+  const overlay = document.createElement('div');
+  overlay.className = 'student-form-overlay';
+  overlay.id = 'exerciseFormOverlay';
+  overlay.innerHTML = `
+    <div class="student-form">
+      <h3>${isEdit ? 'EDITAR EXERCÍCIO' : 'NOVO EXERCÍCIO'}</h3>
+      <div class="field"><label>Nome *</label><input type="text" id="efNome" value="${e.nome || ''}" placeholder="Supino Reto"></div>
+      <div class="field">
+        <label>Grupo muscular *</label>
+        <input type="text" id="efGrupo" value="${e.grupo || ''}" placeholder="Peito, Costas, Quadríceps..." list="grupoList">
+        <datalist id="grupoList">${allGroups.map(g => `<option value="${g}">`).join('')}</datalist>
+      </div>
+      <div class="field"><label>Equipamento</label><input type="text" id="efEquip" value="${e.equipamento || ''}" placeholder="Barra, Halter, Máquina..."></div>
+      <div class="form-btns">
+        <button class="btn-cancel" onclick="closeExerciseForm()">Cancelar</button>
+        <button class="btn-save" id="efBtnSave" onclick="saveExerciseCrud(${idx})">${isEdit ? 'Salvar' : 'Cadastrar'}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('.student-form').addEventListener('click', e => e.stopPropagation());
+  overlay.addEventListener('click', closeExerciseForm);
+  document.getElementById('efNome').focus();
+}
+
+function closeExerciseForm() {
+  const el = document.getElementById('exerciseFormOverlay');
+  if (el) el.remove();
+}
+
+async function saveExerciseCrud(idx) {
+  const nome = document.getElementById('efNome').value.trim();
+  const grupo = document.getElementById('efGrupo').value.trim();
+  if (!nome) return toast('Nome é obrigatório', true);
+  if (!grupo) return toast('Grupo muscular é obrigatório', true);
+
+  const data = {
+    nome,
+    grupo,
+    equipamento: document.getElementById('efEquip').value.trim(),
+  };
+
+  const btn = document.getElementById('efBtnSave');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    if (idx >= 0) {
+      data.action = 'updateExercise';
+      data.rowIndex = exercises[idx].rowIndex;
+    } else {
+      data.action = 'addExercise';
+    }
+    await apiPost(data);
+    toast(idx >= 0 ? 'Exercício atualizado!' : 'Exercício cadastrado!');
+    closeExerciseForm();
+    exercises = await api('exercises');
+    populateExGroupFilter();
+    renderExerciseManager();
+  } catch (e) {
+    toast('Erro ao salvar exercício', true);
+    btn.disabled = false;
+    btn.textContent = idx >= 0 ? 'Salvar' : 'Cadastrar';
+  }
+}
+
+async function deleteExerciseConfirm(idx) {
+  const e = exercises[idx];
+  if (!confirm(`Apagar "${e.nome}"?`)) return;
+  try {
+    await apiPost({ action: 'deleteExercise', rowIndex: e.rowIndex });
+    toast('Exercício removido');
+    exercises = await api('exercises');
+    populateExGroupFilter();
+    renderExerciseManager();
+  } catch (err) {
+    toast('Erro ao remover exercício', true);
+  }
 }
 
 // ── Student CRUD ──
