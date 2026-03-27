@@ -54,6 +54,15 @@ function doPost(e) {
       case 'update':
         updateEntry(ss, data.rowIndex, data);
         return _json({ success: true });
+      case 'addStudent':
+        addStudent(ss, data);
+        return _json({ success: true });
+      case 'updateStudent':
+        updateStudent(ss, data.rowIndex, data);
+        return _json({ success: true });
+      case 'deleteStudent':
+        deleteStudent(ss, data.rowIndex);
+        return _json({ success: true });
       default:
         return _json({ error: 'Ação inválida' });
     }
@@ -74,14 +83,16 @@ function getStudents(ss) {
   if (!sheet) return [];
   const rows = sheet.getDataRange().getValues();
   return rows.slice(1)
-    .filter(r => r[0])
-    .map(r => {
+    .map((r, i) => ({ r, rowIndex: i + 2 }))
+    .filter(({ r }) => r[0])
+    .map(({ r, rowIndex }) => {
       const nome = r[0].toString().trim();
       const telefone = (r[1] || '').toString().replace(/\D/g, '');
       const firstName = nome.split(' ')[0];
       const last4 = telefone.slice(-4);
       const id = firstName + last4;
       return {
+        rowIndex,
         nome,
         id,
         telefone: r[1] || '',
@@ -190,6 +201,44 @@ function updateEntry(ss, rowIndex, data) {
   ];
   const range = sheet.getRange(rowIndex, 1, 1, 11);
   range.setValues([vals]);
+}
+
+// ── Alunos CRUD ──
+
+function addStudent(ss, data) {
+  const sheet = ss.getSheetByName('Alunos');
+  if (!sheet) throw new Error('Aba "Alunos" não encontrada');
+  if (!data.nome) throw new Error('Nome é obrigatório');
+  sheet.appendRow([
+    data.nome || '',
+    data.telefone || '',
+    data.email || '',
+    data.objetivo || '',
+    data.dataInicio || Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd'),
+    data.obs || '',
+  ]);
+}
+
+function updateStudent(ss, rowIndex, data) {
+  const sheet = ss.getSheetByName('Alunos');
+  if (!sheet) throw new Error('Aba "Alunos" não encontrada');
+  if (rowIndex < 2) throw new Error('Não é possível editar o cabeçalho');
+  const vals = [
+    data.nome || '',
+    data.telefone || '',
+    data.email || '',
+    data.objetivo || '',
+    data.dataInicio || '',
+    data.obs || '',
+  ];
+  sheet.getRange(rowIndex, 1, 1, 6).setValues([vals]);
+}
+
+function deleteStudent(ss, rowIndex) {
+  const sheet = ss.getSheetByName('Alunos');
+  if (!sheet) throw new Error('Aba "Alunos" não encontrada');
+  if (rowIndex < 2) throw new Error('Não é possível deletar o cabeçalho');
+  sheet.deleteRow(rowIndex);
 }
 
 // ── Helpers ──

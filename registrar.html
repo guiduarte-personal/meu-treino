@@ -81,6 +81,53 @@ body{
 }
 .student-card .name{font-size:14px;font-weight:600}
 .student-card .obj{font-size:11px;color:var(--text3);margin-top:2px}
+.student-card .card-actions{display:flex;gap:6px;justify-content:center;margin-top:8px}
+.student-card .card-actions button{
+  padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;
+  cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--white);color:var(--text3);
+}
+.student-card .card-actions button:active{background:var(--bg)}
+.student-card .card-actions .btn-edit{color:var(--blue);border-color:var(--blue)}
+.student-card .card-actions .btn-del{color:var(--red);border-color:var(--red)}
+
+/* ── Add Student Button ── */
+.btn-add-student{
+  background:var(--white);border:2px dashed var(--orange);border-radius:var(--radius);
+  padding:16px 12px;text-align:center;cursor:pointer;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;min-height:120px;transition:all 0.15s;
+}
+.btn-add-student:active{background:var(--orange-bg);border-style:solid}
+.btn-add-student .plus{font-size:28px;color:var(--orange);font-weight:300}
+.btn-add-student .lbl{font-size:12px;color:var(--orange);font-weight:600}
+
+/* ── Student Form Modal ── */
+.student-form-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);
+  z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;
+}
+.student-form{
+  background:var(--white);border-radius:var(--radius);padding:20px;
+  width:100%;max-width:420px;box-shadow:0 8px 30px rgba(0,0,0,0.15);
+  max-height:90vh;overflow-y:auto;
+}
+.student-form h3{font-size:15px;font-weight:700;margin-bottom:16px;color:var(--orange)}
+.student-form .field{margin-bottom:10px}
+.student-form .field label{display:block;font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+.student-form .field input{
+  width:100%;padding:10px 12px;border:1px solid var(--border);
+  border-radius:8px;font-size:14px;font-family:inherit;
+  background:var(--white);color:var(--text);
+}
+.student-form .field input:focus{outline:none;border-color:var(--orange)}
+.student-form .form-btns{display:flex;gap:8px;margin-top:16px}
+.student-form .form-btns button{
+  flex:1;padding:12px;border-radius:8px;font-size:14px;font-weight:600;
+  cursor:pointer;font-family:inherit;border:none;
+}
+.student-form .form-btns .btn-save{background:var(--orange);color:#fff}
+.student-form .form-btns .btn-save:active{opacity:0.85}
+.student-form .form-btns .btn-cancel{background:var(--bg);color:var(--text2);border:1px solid var(--border)}
 
 /* ── Session Header ── */
 .session-header{
@@ -442,13 +489,104 @@ function renderStudents() {
   const grid = document.getElementById('studentGrid');
   grid.innerHTML = students.map((s, i) => {
     const initials = s.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-    return `<div class="student-card" onclick="selectStudent(${i})">
-      <div class="initials">${initials}</div>
-      <div class="name">${s.nome}</div>
-      <div class="obj">${s.id}</div>
-      ${s.objetivo ? `<div class="obj">${s.objetivo}</div>` : ''}
+    return `<div class="student-card">
+      <div onclick="selectStudent(${i})">
+        <div class="initials">${initials}</div>
+        <div class="name">${s.nome}</div>
+        <div class="obj">${s.id}</div>
+        ${s.objetivo ? `<div class="obj">${s.objetivo}</div>` : ''}
+      </div>
+      <div class="card-actions">
+        <button class="btn-edit" onclick="event.stopPropagation();showStudentForm(${i})">Editar</button>
+        <button class="btn-del" onclick="event.stopPropagation();deleteStudentConfirm(${i})">Apagar</button>
+      </div>
     </div>`;
-  }).join('');
+  }).join('') + `
+    <div class="btn-add-student" onclick="showStudentForm(-1)">
+      <div class="plus">+</div>
+      <div class="lbl">Novo Aluno</div>
+    </div>`;
+}
+
+// ── Student CRUD ──
+function showStudentForm(idx) {
+  const isEdit = idx >= 0;
+  const s = isEdit ? students[idx] : {};
+  const overlay = document.createElement('div');
+  overlay.className = 'student-form-overlay';
+  overlay.id = 'studentFormOverlay';
+  overlay.innerHTML = `
+    <div class="student-form">
+      <h3>${isEdit ? 'EDITAR ALUNO' : 'NOVO ALUNO'}</h3>
+      <div class="field"><label>Nome completo *</label><input type="text" id="sfNome" value="${s.nome || ''}" placeholder="João da Silva"></div>
+      <div class="field"><label>Telefone *</label><input type="tel" id="sfTelefone" value="${s.telefone || ''}" placeholder="(11) 99999-1234"></div>
+      <div class="field"><label>Email</label><input type="email" id="sfEmail" value="${s.email || ''}" placeholder="joao@email.com"></div>
+      <div class="field"><label>Objetivo</label><input type="text" id="sfObjetivo" value="${s.objetivo || ''}" placeholder="Hipertrofia, emagrecimento..."></div>
+      <div class="field"><label>Observações</label><input type="text" id="sfObs" value="${s.obs || ''}" placeholder="Lesões, restrições..."></div>
+      <div class="form-btns">
+        <button class="btn-cancel" onclick="closeStudentForm()">Cancelar</button>
+        <button class="btn-save" id="sfBtnSave" onclick="saveStudent(${idx})">${isEdit ? 'Salvar' : 'Cadastrar'}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('.student-form').addEventListener('click', e => e.stopPropagation());
+  overlay.addEventListener('click', closeStudentForm);
+  document.getElementById('sfNome').focus();
+}
+
+function closeStudentForm() {
+  const el = document.getElementById('studentFormOverlay');
+  if (el) el.remove();
+}
+
+async function saveStudent(idx) {
+  const nome = document.getElementById('sfNome').value.trim();
+  const telefone = document.getElementById('sfTelefone').value.trim();
+  if (!nome) return toast('Nome é obrigatório', true);
+  if (!telefone) return toast('Telefone é obrigatório (usado no ID)', true);
+
+  const data = {
+    nome,
+    telefone,
+    email: document.getElementById('sfEmail').value.trim(),
+    objetivo: document.getElementById('sfObjetivo').value.trim(),
+    obs: document.getElementById('sfObs').value.trim(),
+  };
+
+  const btn = document.getElementById('sfBtnSave');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    if (idx >= 0) {
+      data.action = 'updateStudent';
+      data.rowIndex = students[idx].rowIndex;
+      data.dataInicio = students[idx].dataInicio;
+    } else {
+      data.action = 'addStudent';
+    }
+    await apiPost(data);
+    toast(idx >= 0 ? 'Aluno atualizado!' : 'Aluno cadastrado!');
+    closeStudentForm();
+    await loadStudents();
+  } catch (e) {
+    toast('Erro ao salvar aluno', true);
+    btn.disabled = false;
+    btn.textContent = idx >= 0 ? 'Salvar' : 'Cadastrar';
+  }
+}
+
+async function deleteStudentConfirm(idx) {
+  const s = students[idx];
+  if (!confirm(`Apagar "${s.nome}"? Isso não remove os treinos registrados.`)) return;
+  try {
+    await apiPost({ action: 'deleteStudent', rowIndex: s.rowIndex });
+    toast('Aluno removido');
+    await loadStudents();
+  } catch (e) {
+    toast('Erro ao remover aluno', true);
+  }
 }
 
 // ── Select Student ──
