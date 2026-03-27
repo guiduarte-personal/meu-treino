@@ -20,7 +20,7 @@ Sistema gratuito de acompanhamento de treinos para o personal trainer Guilherme 
 ### URLs em produção
 - **App registro (Gui)**: `https://guiduarte-personal.github.io/meu-treino/registrar.html`
 - **Dashboard aluno**: `https://guiduarte-personal.github.io/meu-treino/?api=API_URL&aluno=Nome1234` (PrimeiroNome + 4 últimos dígitos do telefone)
-- **API Apps Script**: `https://script.google.com/macros/s/AKfycbyygRP3VVauWSK1J9zy8K_B6NhzKsM0CmNW63O1QC1WzR61lRKFtjL01Jx8T4OaOV7G/exec`
+- **API Apps Script**: `https://script.google.com/macros/s/AKfycby3ATBG036kqphyYKpiZFeWI7quz038Ba8QLLLDc7e-PmtgxY0gWPa97ny9xshd0c0Y/exec`
 - **Planilha**: `https://docs.google.com/spreadsheets/d/1bFR-9YXJs4I9w14YpTf4Kw5n0lgAukrevqwPJ4fQDoE/edit`
 
 ### Identidade Visual
