@@ -151,6 +151,70 @@ body{
   cursor:pointer;font-size:14px;color:var(--text2);flex-shrink:0;
 }
 .date-nav:active{background:var(--bg)}
+
+/* ── Rest Timer ── */
+.rest-timer{
+  position:fixed;bottom:0;left:0;right:0;z-index:95;
+  background:var(--white);border-top:1px solid var(--border);
+  box-shadow:0 -2px 10px rgba(0,0,0,0.08);padding:10px 16px;
+  display:none;
+}
+.rest-timer .rt-bar{position:absolute;top:0;left:0;height:3px;background:var(--orange);transition:width 1s linear}
+.rest-timer .rt-content{display:flex;align-items:center;justify-content:space-between}
+.rest-timer .rt-time{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--orange);min-width:60px}
+.rest-timer .rt-label{font-size:11px;color:var(--text3);margin-left:8px}
+.rest-timer .rt-controls{display:flex;gap:8px}
+.rt-btn{
+  width:36px;height:36px;border-radius:50%;border:1px solid var(--border);
+  background:var(--white);cursor:pointer;font-size:16px;color:var(--text2);
+  display:flex;align-items:center;justify-content:center;
+}
+.rt-btn:active{background:var(--bg)}
+.rt-btn.dismiss{color:var(--red);border-color:var(--red)}
+.rest-timer.done .rt-time{color:var(--green)}
+.rest-timer.done{animation:rt-flash 0.5s ease 3}
+@keyframes rt-flash{50%{background:var(--green-bg)}}
+
+/* ── Toast PR ── */
+.toast.pr{background:var(--yellow);color:#000}
+@keyframes pr-pop{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+.exercise-card.new-pr{animation:pr-pop 0.4s ease}
+
+/* ── Last Session Label ── */
+.last-session{font-size:11px;color:var(--text3);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px}
+.last-session strong{color:var(--text2)}
+
+/* ── Duplicate/Summary overlays ── */
+.overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;
+  background:rgba(0,0,0,0.4);display:flex;align-items:flex-end;justify-content:center;
+}
+.overlay-card{
+  background:var(--white);border-radius:16px 16px 0 0;width:100%;max-width:500px;
+  max-height:80vh;overflow-y:auto;padding:20px 16px 24px;
+}
+.overlay-card h3{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:4px}
+.overlay-card .sub{font-size:12px;color:var(--text3);margin-bottom:16px}
+.overlay-card .date-item{
+  padding:12px 14px;background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;cursor:pointer;margin-bottom:6px;display:flex;
+  align-items:center;justify-content:space-between;transition:all 0.15s;
+}
+.overlay-card .date-item:active{border-color:var(--orange);background:var(--orange-bg)}
+.overlay-card .date-item .di-date{font-size:14px;font-weight:500}
+.overlay-card .date-item .di-info{font-size:11px;color:var(--text3)}
+.overlay-card .btn-share{
+  background:var(--green);color:#fff;border:none;padding:14px;width:100%;
+  border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;
+  font-family:inherit;margin-bottom:8px;
+}
+.overlay-card .btn-share:active{opacity:0.85}
+.overlay-card .btn-close{
+  background:var(--bg);color:var(--text2);border:1px solid var(--border);padding:12px;width:100%;
+  border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;
+}
+.overlay-card .btn-close:active{background:var(--border)}
+
 .treino-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .treino-pill{
   padding:6px 14px;border-radius:20px;border:1px solid var(--border);
@@ -466,6 +530,7 @@ body{
           <input type="date" id="sessionDatePicker" onchange="pickDate(this.value)">
         </div>
         <button class="date-nav" onclick="changeDate(1)">›</button>
+        <button class="date-nav" onclick="showDuplicateOverlay()" title="Copiar treino">📋</button>
       </div>
       <div class="treino-pills" id="treinoPills"></div>
     </div>
@@ -475,12 +540,29 @@ body{
     <div class="empty" id="emptyState">
       <div class="icon">🏋️</div>
       <p>Nenhum exercício registrado neste dia.<br>Toque no <strong>+</strong> para começar.</p>
+      <p style="margin-top:12px"><a href="#" onclick="showDuplicateOverlay();return false" style="color:var(--orange);font-weight:600;font-size:13px;text-decoration:none">📋 Copiar treino de outra data</a></p>
     </div>
   </div>
 </div>
 
 <!-- FAB -->
 <button class="fab" id="fab" style="display:none" onclick="showAddForm()">+</button>
+
+<!-- Rest Timer -->
+<div class="rest-timer" id="restTimer">
+  <div class="rt-bar" id="rtBar"></div>
+  <div class="rt-content">
+    <div style="display:flex;align-items:baseline">
+      <span class="rt-time" id="rtTime">0:00</span>
+      <span class="rt-label">descanso</span>
+    </div>
+    <div class="rt-controls">
+      <button class="rt-btn" id="rtPause" onclick="toggleRestTimer()">⏸</button>
+      <button class="rt-btn" onclick="resetRestTimer()">↺</button>
+      <button class="rt-btn dismiss" onclick="dismissRestTimer()">✕</button>
+    </div>
+  </div>
+</div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -496,6 +578,13 @@ let currentTreino = 'A';
 let todayEntries = [];
 let sessionDate = new Date();
 let isAdding = false;
+let studentHistoryCache = null;
+let studentHistoryCacheId = null;
+let sessionStartTime = null;
+let restTimerInterval = null;
+let restTimerEndTime = 0;
+let restTimerTotal = 0;
+let restTimerPaused = false;
 
 // ── Init ──
 if (API_URL) {
@@ -544,6 +633,12 @@ function goBack() {
     showScreen('screenStudents');
     return;
   }
+  // Show summary if there are exercises
+  if (todayEntries.length > 0 && currentStudent) {
+    showSessionSummary();
+    return;
+  }
+  dismissRestTimer();
   currentStudent = null;
   showScreen('screenStudents');
 }
@@ -829,14 +924,51 @@ function openDashboard(idx) {
   window.open(url, '_blank');
 }
 
+// ── History Cache ──
+async function ensureHistoryCache() {
+  if (studentHistoryCache && studentHistoryCacheId === currentStudent.id) return;
+  try {
+    studentHistoryCache = await api('history', { aluno: currentStudent.id });
+    studentHistoryCacheId = currentStudent.id;
+  } catch (e) {
+    studentHistoryCache = [];
+  }
+}
+
+function getLastEntryForExercise(name) {
+  if (!studentHistoryCache) return null;
+  const entries = studentHistoryCache.filter(e => e.exercicio === name).sort((a, b) => b.data.localeCompare(a.data));
+  return entries[0] || null;
+}
+
+function getMaxCargaForExercise(name) {
+  if (!studentHistoryCache) return 0;
+  return studentHistoryCache.filter(e => e.exercicio === name).reduce((max, e) => Math.max(max, e.carga || 0), 0);
+}
+
+function getUniqueDates() {
+  if (!studentHistoryCache) return [];
+  const map = {};
+  studentHistoryCache.forEach(e => {
+    if (!map[e.data]) map[e.data] = { date: e.data, count: 0, treinos: new Set() };
+    map[e.data].count++;
+    if (e.treino) map[e.data].treinos.add(e.treino);
+  });
+  return Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
+}
+
 // ── Select Student ──
 async function selectStudent(idx) {
   currentStudent = students[idx];
   sessionDate = new Date();
+  sessionStartTime = Date.now();
+  studentHistoryCache = null;
+  studentHistoryCacheId = null;
   showScreen('screenSession');
   updateSessionDate();
   renderTreinoPills();
   await loadSession();
+  ensureHistoryCache();
 }
 
 function updateSessionDate() {
@@ -1008,6 +1140,7 @@ function showAddForm() {
           <div class="sel-name" id="selExName"></div>
           <div class="sel-change" onclick="wizardReset()">Trocar</div>
         </div>
+        <div class="last-session" id="lastSessionLabel" style="display:none"></div>
         <div class="row-fields">
           <div class="field"><label>Séries</label><input type="number" id="fSeries" placeholder="4" inputmode="numeric"></div>
           <div class="field"><label>Reps</label><input type="number" id="fReps" placeholder="12" inputmode="numeric"></div>
@@ -1142,10 +1275,23 @@ function wizardSelectExercise(name) {
   document.getElementById('wizardCancel').style.display = 'none';
   document.getElementById('dataForm').style.display = 'block';
 
-  // Pre-fill descanso from last entry
-  if (todayEntries.length > 0) {
+  // Pre-fill from last session for this exercise
+  const lastLabel = document.getElementById('lastSessionLabel');
+  const prev = getLastEntryForExercise(name);
+  if (prev) {
+    document.getElementById('fSeries').value = prev.series || '';
+    document.getElementById('fReps').value = prev.reps || '';
+    document.getElementById('fCarga').value = prev.carga || '';
+    document.getElementById('fDescanso').value = prev.descanso || '';
+    const d = prev.data.split('-');
+    lastLabel.innerHTML = `Último: <strong>${prev.series}×${prev.reps} @ ${prev.carga}kg</strong> (${d[2]}/${d[1]})`;
+    lastLabel.style.display = 'block';
+  } else if (todayEntries.length > 0) {
     const last = todayEntries[todayEntries.length - 1];
     document.getElementById('fDescanso').value = last.descanso || '';
+    lastLabel.style.display = 'none';
+  } else {
+    lastLabel.style.display = 'none';
   }
 
   setTimeout(() => {
@@ -1205,6 +1351,17 @@ async function saveExercise() {
   const exercicio = wizardSelectedExercise;
   if (!exercicio) return toast('Selecione um exercício', true);
 
+  const carga = parseFloat(document.getElementById('fCarga').value) || 0;
+  const descanso = parseInt(document.getElementById('fDescanso').value) || 0;
+  let obs = document.getElementById('fObs').value.trim();
+
+  // Auto PR detection
+  const maxCarga = getMaxCargaForExercise(exercicio);
+  const isPR = carga > 0 && carga > maxCarga;
+  if (isPR && !obs.toLowerCase().includes('pr')) {
+    obs = obs ? obs + ' PR' : 'PR';
+  }
+
   const data = {
     action: 'add',
     data: formatDateISO(sessionDate),
@@ -1213,11 +1370,11 @@ async function saveExercise() {
     exercicio,
     series: parseInt(document.getElementById('fSeries').value) || 0,
     reps: parseInt(document.getElementById('fReps').value) || 0,
-    carga: parseFloat(document.getElementById('fCarga').value) || 0,
-    descanso: parseInt(document.getElementById('fDescanso').value) || 0,
+    carga,
+    descanso,
     rpe: selectedRPE || 0,
     duracao: parseInt(document.getElementById('fDuracao').value) || 0,
-    obs: document.getElementById('fObs').value.trim(),
+    obs,
   };
 
   const btn = document.getElementById('btnSave');
@@ -1226,11 +1383,22 @@ async function saveExercise() {
 
   try {
     await apiPost(data);
-    toast('Exercício salvo!');
+    // Update local cache
+    if (studentHistoryCache) studentHistoryCache.push({ ...data, rowIndex: -1 });
+
+    if (isPR) {
+      toast('🏆 Novo recorde pessoal!');
+      document.getElementById('toast').className = 'toast show pr';
+    } else {
+      toast('Exercício salvo!');
+    }
+
     hideAddForm();
     selectedRPE = 0;
-    // Reload entries
     await loadSession();
+
+    // Auto-start rest timer
+    if (descanso > 0) startRestTimer(descanso);
   } catch (e) {
     toast('Erro ao salvar. Tente novamente.', true);
     btn.disabled = false;
@@ -1247,6 +1415,207 @@ async function deleteExercise(rowIndex, idx) {
   } catch (e) {
     toast('Erro ao remover', true);
   }
+}
+
+// ── Rest Timer ──
+function startRestTimer(seconds) {
+  restTimerTotal = seconds;
+  restTimerEndTime = Date.now() + seconds * 1000;
+  restTimerPaused = false;
+  const timer = document.getElementById('restTimer');
+  timer.style.display = 'block';
+  timer.classList.remove('done');
+  document.getElementById('rtPause').textContent = '⏸';
+  document.getElementById('fab').style.bottom = '80px';
+  if (restTimerInterval) clearInterval(restTimerInterval);
+  restTimerInterval = setInterval(tickRestTimer, 250);
+  tickRestTimer();
+}
+
+function tickRestTimer() {
+  const remaining = Math.max(0, Math.ceil((restTimerEndTime - Date.now()) / 1000));
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  document.getElementById('rtTime').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+  document.getElementById('rtBar').style.width = `${(remaining / restTimerTotal) * 100}%`;
+
+  if (remaining <= 0) {
+    clearInterval(restTimerInterval);
+    restTimerInterval = null;
+    document.getElementById('restTimer').classList.add('done');
+    document.getElementById('rtTime').textContent = '0:00';
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 880;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.3;
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      setTimeout(() => { osc.stop(); ctx.close(); }, 300);
+    } catch (e) {}
+  }
+}
+
+function toggleRestTimer() {
+  if (restTimerPaused) {
+    restTimerEndTime = Date.now() + restTimerPaused * 1000;
+    restTimerPaused = false;
+    document.getElementById('rtPause').textContent = '⏸';
+    restTimerInterval = setInterval(tickRestTimer, 250);
+    tickRestTimer();
+  } else {
+    const remaining = Math.max(0, Math.ceil((restTimerEndTime - Date.now()) / 1000));
+    restTimerPaused = remaining;
+    clearInterval(restTimerInterval);
+    restTimerInterval = null;
+    document.getElementById('rtPause').textContent = '▶';
+  }
+}
+
+function resetRestTimer() {
+  startRestTimer(restTimerTotal);
+}
+
+function dismissRestTimer() {
+  clearInterval(restTimerInterval);
+  restTimerInterval = null;
+  document.getElementById('restTimer').style.display = 'none';
+  document.getElementById('fab').style.bottom = '24px';
+}
+
+// ── Duplicate Workout ──
+function showDuplicateOverlay() {
+  const dates = getUniqueDates().filter(d => d.date !== formatDateISO(sessionDate)).slice(0, 20);
+  if (dates.length === 0) return toast('Nenhum treino anterior encontrado', true);
+
+  const items = dates.map(d => {
+    const [y, m, day] = d.date.split('-');
+    const dt = new Date(+y, +m - 1, +day);
+    const treinos = [...d.treinos].sort().join(', ');
+    return `<div class="date-item" onclick="duplicateFromDate('${d.date}')">
+      <div><div class="di-date">${formatDateBR(dt)}</div><div class="di-info">Treino ${treinos}</div></div>
+      <div class="di-info">${d.count} exerc.</div>
+    </div>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.id = 'duplicateOverlay';
+  overlay.innerHTML = `<div class="overlay-card">
+    <h3>COPIAR TREINO</h3>
+    <p class="sub">Selecione uma data para copiar os exercícios para ${formatDateBR(sessionDate)}</p>
+    ${items}
+    <button class="btn-close" onclick="closeDuplicateOverlay()">Cancelar</button>
+  </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeDuplicateOverlay(); });
+  document.body.appendChild(overlay);
+}
+
+function closeDuplicateOverlay() {
+  const el = document.getElementById('duplicateOverlay');
+  if (el) el.remove();
+}
+
+async function duplicateFromDate(dateStr) {
+  const entries = studentHistoryCache.filter(e => e.data === dateStr);
+  if (entries.length === 0) return;
+
+  const overlay = document.getElementById('duplicateOverlay');
+  const card = overlay.querySelector('.overlay-card');
+  card.innerHTML = '<h3>COPIANDO...</h3><p class="sub" id="dupProgress">0/' + entries.length + '</p>';
+
+  for (let i = 0; i < entries.length; i++) {
+    document.getElementById('dupProgress').textContent = `${i + 1}/${entries.length}`;
+    const e = entries[i];
+    await apiPost({
+      action: 'add',
+      data: formatDateISO(sessionDate),
+      aluno: currentStudent.id,
+      treino: e.treino || currentTreino,
+      exercicio: e.exercicio,
+      series: e.series || 0,
+      reps: e.reps || 0,
+      carga: e.carga || 0,
+      descanso: e.descanso || 0,
+      rpe: e.rpe || 0,
+      duracao: e.duracao || 0,
+      obs: e.obs || '',
+    });
+  }
+
+  closeDuplicateOverlay();
+  toast(`${entries.length} exercícios copiados!`);
+  studentHistoryCache = null;
+  ensureHistoryCache();
+  await loadSession();
+}
+
+// ── Session Summary + WhatsApp Share ──
+function showSessionSummary() {
+  if (todayEntries.length === 0) return;
+
+  const exCount = todayEntries.length;
+  const totalVol = todayEntries.reduce((s, e) => s + (e.series * e.reps * e.carga), 0);
+  const avgRpe = todayEntries.filter(e => e.rpe > 0);
+  const rpe = avgRpe.length ? (avgRpe.reduce((s, e) => s + e.rpe, 0) / avgRpe.length).toFixed(1) : '—';
+  const prs = todayEntries.filter(e => e.obs?.toLowerCase().includes('pr')).map(e => e.exercicio);
+  const duration = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.id = 'summaryOverlay';
+  overlay.innerHTML = `<div class="overlay-card" style="text-align:center">
+    <h3>RESUMO DA SESSÃO</h3>
+    <p class="sub">${currentStudent.nome} — ${formatDateBR(sessionDate)}</p>
+    <div class="session-stats" style="margin-bottom:16px">
+      <div class="mini-stat"><div class="val">${exCount}</div><div class="lbl">Exercícios</div></div>
+      <div class="mini-stat"><div class="val">${(totalVol / 1000).toFixed(1)}t</div><div class="lbl">Volume</div></div>
+      <div class="mini-stat"><div class="val">${rpe}</div><div class="lbl">RPE Médio</div></div>
+      ${duration ? `<div class="mini-stat"><div class="val">${duration}min</div><div class="lbl">Duração</div></div>` : ''}
+    </div>
+    ${prs.length > 0 ? `<div style="background:var(--yellow);color:#000;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px">🏆 PRs: ${prs.join(', ')}</div>` : ''}
+    <button class="btn-share" onclick="shareWhatsApp()">📱 Compartilhar via WhatsApp</button>
+    <button class="btn-close" onclick="closeSummaryAndGoBack()">Fechar</button>
+  </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSummaryAndGoBack(); });
+  document.body.appendChild(overlay);
+}
+
+function shareWhatsApp() {
+  const exCount = todayEntries.length;
+  const totalVol = (todayEntries.reduce((s, e) => s + (e.series * e.reps * e.carga), 0) / 1000).toFixed(1);
+  const avgRpe = todayEntries.filter(e => e.rpe > 0);
+  const rpe = avgRpe.length ? (avgRpe.reduce((s, e) => s + e.rpe, 0) / avgRpe.length).toFixed(1) : '—';
+  const treinos = [...new Set(todayEntries.map(e => e.treino))].sort().join(', ');
+
+  const lines = [
+    `*${currentStudent.nome}* — Treino ${treinos}`,
+    `📅 ${formatDateBR(sessionDate)}`,
+    '',
+    `📊 *Resumo:*`,
+    `• ${exCount} exercícios`,
+    `• ${totalVol}t de volume`,
+    `• RPE médio: ${rpe}`,
+    '',
+    ...todayEntries.slice(0, 15).map(e =>
+      `▪️ ${e.exercicio}: ${e.series}×${e.reps} @ ${e.carga}kg${e.obs?.toLowerCase().includes('pr') ? ' 🏆' : ''}`
+    ),
+    '',
+    `_Registrado com GUI Personal_`
+  ].join('\n');
+
+  window.open('https://wa.me/?text=' + encodeURIComponent(lines), '_blank');
+}
+
+function closeSummaryAndGoBack() {
+  const el = document.getElementById('summaryOverlay');
+  if (el) el.remove();
+  dismissRestTimer();
+  currentStudent = null;
+  sessionStartTime = null;
+  showScreen('screenStudents');
 }
 
 // ── Helpers ──
