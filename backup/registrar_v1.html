@@ -184,43 +184,6 @@ body{
 .last-session{font-size:11px;color:var(--text3);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px}
 .last-session strong{color:var(--text2)}
 
-/* ── Set-by-set logger ── */
-.set-logger{margin-top:12px}
-.set-logged{
-  display:flex;align-items:center;gap:10px;padding:8px 12px;
-  background:var(--green-bg);border:1px solid var(--green);border-radius:8px;
-  margin-bottom:6px;font-size:13px;color:var(--text);
-}
-.set-logged .set-num{
-  width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;
-  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.set-logged .set-detail{flex:1;font-weight:500}
-.set-logged .set-remove{
-  font-size:16px;color:var(--red);cursor:pointer;padding:2px 6px;border:none;background:none;
-}
-.set-current{
-  background:var(--white);border:1px solid var(--orange);border-radius:8px;
-  padding:12px;margin-bottom:8px;
-}
-.set-current .set-title{font-size:12px;font-weight:600;color:var(--orange);margin-bottom:8px}
-.set-current .set-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.set-current .set-fields .field label{font-size:11px}
-.set-current .set-fields .field input{padding:10px 8px;font-size:15px}
-.btn-log-set{
-  background:var(--orange);color:#fff;border:none;padding:12px;width:100%;
-  border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;
-  font-family:inherit;margin-top:4px;
-}
-.btn-log-set:active{opacity:0.85}
-.btn-finish-ex{
-  background:var(--green);color:#fff;border:none;padding:14px;width:100%;
-  border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;
-  font-family:inherit;margin-top:4px;
-}
-.btn-finish-ex:active{opacity:0.85}
-.btn-finish-ex:disabled{background:var(--border);color:var(--text3);cursor:default}
-
 /* ── Duplicate/Summary overlays ── */
 .overlay{
   position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;
@@ -1070,17 +1033,8 @@ function renderExercises() {
   }
   empty.style.display = 'none';
 
-  // Mini stats — use per-set data when available for accurate volume
-  const totalVol = todayEntries.reduce((s, e) => {
-    const setMatch = e.obs?.match(/\[([\d@.,\s]+)\]/);
-    if (setMatch) {
-      return s + setMatch[1].split(',').reduce((sum, p) => {
-        const [r, c] = p.trim().split('@').map(Number);
-        return sum + (r || 0) * (c || 0);
-      }, 0);
-    }
-    return s + (e.series * e.reps * e.carga);
-  }, 0);
+  // Mini stats
+  const totalVol = todayEntries.reduce((s, e) => s + (e.series * e.reps * e.carga), 0);
   const exCount = todayEntries.length;
   const avgRpe = todayEntries.filter(e => e.rpe > 0);
   const rpe = avgRpe.length ? (avgRpe.reduce((s, e) => s + e.rpe, 0) / avgRpe.length).toFixed(1) : '—';
@@ -1092,27 +1046,15 @@ function renderExercises() {
 
   list.innerHTML = todayEntries.map((e, i) => {
     const isPR = e.obs?.toLowerCase().includes('pr');
-    // Parse per-set detail from obs: [15@60, 14@60, 12@55]
-    const setMatch = e.obs?.match(/\[([\d@.,\s]+)\]/);
-    let summary;
-    if (setMatch) {
-      const sets = setMatch[1].split(',').map(s => s.trim());
-      summary = `${sets.length} séries · ${sets.map(s => { const [r,c] = s.split('@'); return r + 'reps'; }).join('/')} @ ${e.carga}kg`;
-      if (e.descanso) summary += ` · ${e.descanso}s desc.`;
-    } else {
-      summary = `${e.series}×${e.reps} @ ${e.carga}kg${e.descanso ? ` · ${e.descanso}s desc.` : ''}`;
-    }
-    // Clean obs for display (remove set detail and PR)
-    const obsClean = (e.obs || '').replace(/\[[\d@.,\s]+\]/, '').replace(/\bPR\b/gi, '').trim();
     return `<div class="exercise-card">
       <div class="ex-header">
         <div>
           <div class="ex-name">${e.exercicio}</div>
-          <div class="ex-summary">${summary}</div>
+          <div class="ex-summary">${e.series}×${e.reps} @ ${e.carga}kg${e.descanso ? ` · ${e.descanso}s desc.` : ''}</div>
           <div class="ex-badges">
             ${e.rpe ? `<span class="ex-badge rpe">RPE ${e.rpe}</span>` : ''}
             ${isPR ? '<span class="ex-badge pr">PR!</span>' : ''}
-            ${obsClean ? `<span class="ex-badge obs">${obsClean.substring(0,25)}</span>` : ''}
+            ${e.obs && !isPR ? `<span class="ex-badge obs">${e.obs.substring(0,25)}</span>` : ''}
           </div>
         </div>
         <div class="ex-actions">
@@ -1150,8 +1092,6 @@ function getGroupsForRegion(regionKey) {
 }
 
 let wizardSelectedExercise = '';
-let currentSets = [];
-let targetDescanso = 60;
 
 // ── Add Exercise ──
 function showAddForm() {
@@ -1201,35 +1141,26 @@ function showAddForm() {
           <div class="sel-change" onclick="wizardReset()">Trocar</div>
         </div>
         <div class="last-session" id="lastSessionLabel" style="display:none"></div>
-
-        <!-- Logged sets -->
-        <div class="set-logger" id="setLogger"></div>
-
-        <!-- Current set input -->
-        <div class="set-current" id="setCurrentForm">
-          <div class="set-title" id="setTitle">Série 1</div>
-          <div class="set-fields">
-            <div class="field"><label>Reps</label><input type="number" id="fReps" placeholder="12" inputmode="numeric"></div>
-            <div class="field"><label>Carga (kg)</label><input type="number" id="fCarga" placeholder="0" inputmode="decimal" step="0.5"></div>
-          </div>
-          <div class="set-fields" style="margin-top:8px">
-            <div class="field"><label>Descanso (seg)</label><input type="number" id="fDescanso" placeholder="60" inputmode="numeric"></div>
-            <div class="field">
-              <label>RPE</label>
-              <div class="rpe-row" id="rpeRow" style="justify-content:flex-start;gap:4px">
-                ${[1,2,3,4,5,6,7,8,9,10].map(n => {
-                  const cls = n <= 4 ? 's-low' : n <= 7 ? 's-mid' : 's-high';
-                  return `<div class="rpe-opt ${cls}" data-v="${n}" onclick="selectRPE(${n})" style="width:26px;height:26px;font-size:11px">${n}</div>`;
-                }).join('')}
-              </div>
-            </div>
-          </div>
-          <button class="btn-log-set" onclick="logCurrentSet()">✓ Registrar Série</button>
+        <div class="row-fields">
+          <div class="field"><label>Séries</label><input type="number" id="fSeries" placeholder="4" inputmode="numeric"></div>
+          <div class="field"><label>Reps</label><input type="number" id="fReps" placeholder="12" inputmode="numeric"></div>
+          <div class="field"><label>Carga (kg)</label><input type="number" id="fCarga" placeholder="0" inputmode="decimal" step="0.5"></div>
         </div>
-
-        <!-- Finish exercise -->
-        <div class="field" style="margin-top:4px"><label>Observações</label><input type="text" id="fObs" placeholder="PR, dor, ajuste..."></div>
-        <button class="btn-finish-ex" id="btnFinish" onclick="saveExercise()" disabled>Concluir Exercício</button>
+        <div class="row-fields-2">
+          <div class="field"><label>Descanso (seg)</label><input type="number" id="fDescanso" placeholder="60" inputmode="numeric"></div>
+          <div class="field"><label>Duração (min)</label><input type="number" id="fDuracao" placeholder="" inputmode="numeric"></div>
+        </div>
+        <div class="field">
+          <label>RPE (esforço percebido)</label>
+          <div class="rpe-row" id="rpeRow">
+            ${[1,2,3,4,5,6,7,8,9,10].map(n => {
+              const cls = n <= 4 ? 's-low' : n <= 7 ? 's-mid' : 's-high';
+              return `<div class="rpe-opt ${cls}" data-v="${n}" onclick="selectRPE(${n})">${n}</div>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="field"><label>Observações</label><input type="text" id="fObs" placeholder="PR, dor, ajuste..."></div>
+        <button class="btn-save" id="btnSave" onclick="saveExercise()">Salvar Exercício</button>
         <button class="btn-cancel" onclick="hideAddForm()">Cancelar</button>
       </div>
 
@@ -1339,8 +1270,6 @@ function wizardToStep(step) {
 
 function wizardSelectExercise(name) {
   wizardSelectedExercise = name;
-  currentSets = [];
-  selectedRPE = 0;
   document.getElementById('selExName').textContent = name;
   document.getElementById('wizardPicker').style.display = 'none';
   document.getElementById('wizardCancel').style.display = 'none';
@@ -1349,35 +1278,25 @@ function wizardSelectExercise(name) {
   // Pre-fill from last session for this exercise
   const lastLabel = document.getElementById('lastSessionLabel');
   const prev = getLastEntryForExercise(name);
-  let prefillReps = '', prefillCarga = '', prefillDescanso = '';
   if (prev) {
-    prefillReps = prev.reps || '';
-    prefillCarga = prev.carga || '';
-    prefillDescanso = prev.descanso || '';
+    document.getElementById('fSeries').value = prev.series || '';
+    document.getElementById('fReps').value = prev.reps || '';
+    document.getElementById('fCarga').value = prev.carga || '';
+    document.getElementById('fDescanso').value = prev.descanso || '';
     const d = prev.data.split('-');
-    // Show per-set detail if available
-    const detail = prev.obs?.match(/\[[\d@.,\s]+\]/);
-    lastLabel.innerHTML = detail
-      ? `Último: <strong>${detail[0]}</strong> (${d[2]}/${d[1]})`
-      : `Último: <strong>${prev.series}×${prev.reps} @ ${prev.carga}kg</strong> (${d[2]}/${d[1]})`;
+    lastLabel.innerHTML = `Último: <strong>${prev.series}×${prev.reps} @ ${prev.carga}kg</strong> (${d[2]}/${d[1]})`;
     lastLabel.style.display = 'block';
   } else if (todayEntries.length > 0) {
     const last = todayEntries[todayEntries.length - 1];
-    prefillDescanso = last.descanso || '';
+    document.getElementById('fDescanso').value = last.descanso || '';
     lastLabel.style.display = 'none';
   } else {
     lastLabel.style.display = 'none';
   }
 
-  targetDescanso = prefillDescanso || 60;
-  document.getElementById('fReps').value = prefillReps;
-  document.getElementById('fCarga').value = prefillCarga;
-  document.getElementById('fDescanso').value = prefillDescanso;
-  renderSets();
-
   setTimeout(() => {
     document.getElementById('dataForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    document.getElementById('fReps').focus();
+    document.getElementById('fSeries').focus();
   }, 100);
 }
 
@@ -1407,8 +1326,6 @@ function wizardSearch(val) {
 
 function hideAddForm() {
   isAdding = false;
-  currentSets = [];
-  selectedRPE = 0;
   document.getElementById('addFormContainer').innerHTML = '';
   document.getElementById('fab').style.display = 'flex';
   if (todayEntries.length === 0) document.getElementById('emptyState').style.display = 'block';
@@ -1422,50 +1339,6 @@ function selectRPE(n) {
   });
 }
 
-function logCurrentSet() {
-  const reps = parseInt(document.getElementById('fReps').value) || 0;
-  const carga = parseFloat(document.getElementById('fCarga').value) || 0;
-  const descanso = parseInt(document.getElementById('fDescanso').value) || 0;
-  const rpe = selectedRPE || 0;
-  if (reps === 0) return toast('Informe as reps', true);
-
-  currentSets.push({ reps, carga, descanso, rpe });
-  targetDescanso = descanso;
-  selectedRPE = 0;
-  renderSets();
-
-  // Start rest timer
-  if (descanso > 0) startRestTimer(descanso);
-
-  // Scroll to the set form for next set
-  setTimeout(() => {
-    document.getElementById('setCurrentForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    document.getElementById('fReps').focus();
-  }, 100);
-}
-
-function removeSet(idx) {
-  currentSets.splice(idx, 1);
-  renderSets();
-}
-
-function renderSets() {
-  const logger = document.getElementById('setLogger');
-  logger.innerHTML = currentSets.map((s, i) =>
-    `<div class="set-logged">
-      <div class="set-num">${i + 1}</div>
-      <div class="set-detail">${s.reps} reps @ ${s.carga}kg${s.rpe ? ` · RPE ${s.rpe}` : ''}</div>
-      <button class="set-remove" onclick="removeSet(${i})">✕</button>
-    </div>`
-  ).join('');
-
-  document.getElementById('setTitle').textContent = `Série ${currentSets.length + 1}`;
-  document.getElementById('btnFinish').disabled = currentSets.length === 0;
-
-  // Reset RPE selection visual
-  document.querySelectorAll('.rpe-opt').forEach(el => el.classList.remove('selected'));
-}
-
 // Close search results on outside click
 document.addEventListener('click', e => {
   if (!e.target.closest('.wizard-search-wrap') && !e.target.closest('.wizard-list')) {
@@ -1477,28 +1350,17 @@ document.addEventListener('click', e => {
 async function saveExercise() {
   const exercicio = wizardSelectedExercise;
   if (!exercicio) return toast('Selecione um exercício', true);
-  if (currentSets.length === 0) return toast('Registre ao menos uma série', true);
 
-  // Aggregate sets
-  const series = currentSets.length;
-  const maxCargaSet = Math.max(...currentSets.map(s => s.carga));
-  const avgReps = Math.round(currentSets.reduce((s, c) => s + c.reps, 0) / series);
-  const avgRpe = currentSets.filter(s => s.rpe > 0);
-  const rpe = avgRpe.length ? Math.round(avgRpe.reduce((s, c) => s + c.rpe, 0) / avgRpe.length * 10) / 10 : 0;
-  const descanso = targetDescanso;
-
-  // Build per-set detail string: [15@60, 14@60, 12@55]
-  const setDetail = '[' + currentSets.map(s => `${s.reps}@${s.carga}`).join(', ') + ']';
+  const carga = parseFloat(document.getElementById('fCarga').value) || 0;
+  const descanso = parseInt(document.getElementById('fDescanso').value) || 0;
   let obs = document.getElementById('fObs').value.trim();
 
   // Auto PR detection
-  const maxCargaHistory = getMaxCargaForExercise(exercicio);
-  const isPR = maxCargaSet > 0 && maxCargaSet > maxCargaHistory;
+  const maxCarga = getMaxCargaForExercise(exercicio);
+  const isPR = carga > 0 && carga > maxCarga;
   if (isPR && !obs.toLowerCase().includes('pr')) {
     obs = obs ? obs + ' PR' : 'PR';
   }
-  // Append set detail
-  obs = obs ? obs + ' ' + setDetail : setDetail;
 
   const data = {
     action: 'add',
@@ -1506,38 +1368,41 @@ async function saveExercise() {
     aluno: currentStudent.id,
     treino: currentTreino,
     exercicio,
-    series,
-    reps: avgReps,
-    carga: maxCargaSet,
+    series: parseInt(document.getElementById('fSeries').value) || 0,
+    reps: parseInt(document.getElementById('fReps').value) || 0,
+    carga,
     descanso,
-    rpe,
-    duracao: 0,
+    rpe: selectedRPE || 0,
+    duracao: parseInt(document.getElementById('fDuracao').value) || 0,
     obs,
   };
 
-  const btn = document.getElementById('btnFinish');
+  const btn = document.getElementById('btnSave');
   btn.disabled = true;
   btn.textContent = 'Salvando...';
 
   try {
     await apiPost(data);
+    // Update local cache
     if (studentHistoryCache) studentHistoryCache.push({ ...data, rowIndex: -1 });
 
     if (isPR) {
       toast('🏆 Novo recorde pessoal!');
       document.getElementById('toast').className = 'toast show pr';
     } else {
-      toast(`Exercício salvo! (${series} séries)`);
+      toast('Exercício salvo!');
     }
 
     hideAddForm();
-    currentSets = [];
     selectedRPE = 0;
     await loadSession();
+
+    // Auto-start rest timer
+    if (descanso > 0) startRestTimer(descanso);
   } catch (e) {
     toast('Erro ao salvar. Tente novamente.', true);
     btn.disabled = false;
-    btn.textContent = 'Concluir Exercício';
+    btn.textContent = 'Salvar Exercício';
   }
 }
 
@@ -1734,11 +1599,9 @@ function shareWhatsApp() {
     `• ${totalVol}t de volume`,
     `• RPE médio: ${rpe}`,
     '',
-    ...todayEntries.slice(0, 15).map(e => {
-      const setMatch = e.obs?.match(/\[([\d@.,\s]+)\]/);
-      const detail = setMatch ? setMatch[1].split(',').map(s => s.trim().split('@')[0]).join('/') + ' reps' : `${e.series}×${e.reps}`;
-      return `▪️ ${e.exercicio}: ${detail} @ ${e.carga}kg${e.obs?.toLowerCase().includes('pr') ? ' 🏆' : ''}`;
-    }),
+    ...todayEntries.slice(0, 15).map(e =>
+      `▪️ ${e.exercicio}: ${e.series}×${e.reps} @ ${e.carga}kg${e.obs?.toLowerCase().includes('pr') ? ' 🏆' : ''}`
+    ),
     '',
     `_Registrado com GUI Personal_`
   ].join('\n');
