@@ -82,6 +82,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webk
 }
 .filters-row input:focus,.filters-row select:focus{outline:none;border-color:var(--orange)}
 .filter-group{display:flex;flex-direction:column;gap:4px}
+.date-presets{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-end}
+.date-preset{
+  padding:5px 10px;border:1px solid var(--border);border-radius:6px;
+  background:var(--white);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit;
+  white-space:nowrap;transition:all 0.15s;
+}
+.date-preset:hover{border-color:var(--orange);color:var(--orange)}
+.date-preset.active{background:var(--orange-bg);border-color:var(--orange);color:var(--orange);font-weight:600}
 .btn-filter{
   padding:7px 16px;border:1px solid var(--orange);border-radius:6px;
   background:var(--orange-bg);color:var(--orange);font-size:12px;font-weight:600;
@@ -206,9 +214,23 @@ tbody tr:hover{background:#fafafa}
           <label>Até</label>
           <input type="date" id="fTo">
         </div>
+        <div class="date-presets">
+          <button class="date-preset" onclick="setDatePreset(1)">1 mês</button>
+          <button class="date-preset" onclick="setDatePreset(3)">3 meses</button>
+          <button class="date-preset" onclick="setDatePreset(6)">6 meses</button>
+          <button class="date-preset" onclick="setDatePreset(12)">1 ano</button>
+        </div>
         <div class="filter-group">
           <label>Treino</label>
           <select id="fTreino"><option value="">Todos</option></select>
+        </div>
+        <div class="filter-group">
+          <label>Categoria</label>
+          <select id="fCategoria" onchange="onCategoriaChange()"><option value="">Todas</option></select>
+        </div>
+        <div class="filter-group">
+          <label>Grupo</label>
+          <select id="fGrupo" onchange="onGrupoChange()"><option value="">Todos</option></select>
         </div>
         <div class="filter-group">
           <label>Exercício</label>
@@ -271,6 +293,21 @@ const alunoDisplay = alunoName.replace(/\d+$/, '') || alunoName;
 let allData = [];
 let filteredData = [];
 let charts = [];
+let exerciseMap = {}; // exercicio name → { grupo, equipamento }
+
+const REGIONS = [
+  { key:'superior', label:'Superior', icon:'💪', keywords:['peito','peitoral','costas','dorsal','ombro','deltóide','deltoide','bíceps','biceps','tríceps','triceps','antebraço','antebraco','trapézio','trapezio'] },
+  { key:'inferior', label:'Inferior', icon:'🦵', keywords:['quadríceps','quadriceps','posterior','glúteo','gluteo','panturrilha','adutor','abdutor','perna','coxa'] },
+  { key:'core', label:'Core', icon:'🎯', keywords:['abdômen','abdomen','oblíquo','obliquo','lombar','core'] },
+  { key:'cardio', label:'Cardio', icon:'🏃', keywords:['cardio','funcional','full body','alongamento','aerób','aerob'] },
+];
+
+function getRegion(grupo) {
+  if (!grupo) return 'outros';
+  const g = grupo.toLowerCase();
+  for (const r of REGIONS) { if (r.keywords.some(k => g.includes(k))) return r.key; }
+  return 'outros';
+}
 
 if (!API_URL || !alunoName) {
   document.getElementById('loading').style.display = 'none';
@@ -283,13 +320,18 @@ async function init() {
   try {
     let data;
     if (API_URL.includes('script.google.com')) {
-      const url = new URL(API_URL);
-      url.searchParams.set('action', 'history');
-      url.searchParams.set('aluno', alunoName);
-      const res = await fetch(url.toString());
-      data = await res.json();
+      const histUrl = new URL(API_URL);
+      histUrl.searchParams.set('action', 'history');
+      histUrl.searchParams.set('aluno', alunoName);
+      const exUrl = new URL(API_URL);
+      exUrl.searchParams.set('action', 'exercises');
+      const [histRes, exRes] = await Promise.all([fetch(histUrl.toString()), fetch(exUrl.toString())]);
+      data = await histRes.json();
+      try {
+        const exData = await exRes.json();
+        if (Array.isArray(exData)) exData.forEach(e => { exerciseMap[e.nome] = { grupo: e.grupo || '', equipamento: e.equipamento || '' }; });
+      } catch(_) {}
     } else {
-      // Fallback: CSV mode (backwards compatible)
       const res = await fetch(API_URL);
       const text = await res.text();
       data = parseCSV(text);
@@ -297,7 +339,7 @@ async function init() {
 
     if (data.error) throw new Error(data.error);
     allData = Array.isArray(data) ? data : [];
-    
+
     // Filter by student name for CSV mode
     if (!API_URL.includes('script.google.com')) {
       allData = allData.filter(r => r.aluno?.toLowerCase().trim() === alunoName.toLowerCase().trim());
@@ -358,23 +400,128 @@ function showError(msg) {
 
 function populateFilters() {
   const treinos = [...new Set(allData.map(r => r.treino).filter(Boolean))].sort();
-  const exercicios = [...new Set(allData.map(r => r.exercicio).filter(Boolean))].sort();
   const selT = document.getElementById('fTreino');
   treinos.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = `Treino ${t}`; selT.appendChild(o); });
+
+  // Populate category dropdown
+  const selCat = document.getElementById('fCategoria');
+  const usedRegions = new Set();
+  allData.forEach(r => {
+    const info = exerciseMap[r.exercicio];
+    if (info) usedRegions.add(getRegion(info.grupo));
+  });
+  REGIONS.forEach(reg => {
+    if (usedRegions.has(reg.key)) {
+      const o = document.createElement('option');
+      o.value = reg.key; o.textContent = `${reg.icon} ${reg.label}`;
+      selCat.appendChild(o);
+    }
+  });
+  if (usedRegions.has('outros')) {
+    const o = document.createElement('option');
+    o.value = 'outros'; o.textContent = '📦 Outros';
+    selCat.appendChild(o);
+  }
+
+  // If no exercise map (CSV mode), fall back to flat exercise list
+  if (Object.keys(exerciseMap).length === 0) {
+    document.getElementById('fCategoria').style.display = 'none';
+    document.getElementById('fCategoria').parentElement.style.display = 'none';
+    document.getElementById('fGrupo').style.display = 'none';
+    document.getElementById('fGrupo').parentElement.style.display = 'none';
+    const selE = document.getElementById('fExercicio');
+    [...new Set(allData.map(r => r.exercicio).filter(Boolean))].sort().forEach(e => {
+      const o = document.createElement('option'); o.value = e; o.textContent = e; selE.appendChild(o);
+    });
+  }
+
+  populateGrupos();
+  populateExercicios();
+}
+
+function getExercisesForFilter() {
+  const cat = document.getElementById('fCategoria').value;
+  const grupo = document.getElementById('fGrupo').value;
+  const allEx = [...new Set(allData.map(r => r.exercicio).filter(Boolean))].sort();
+  return allEx.filter(ex => {
+    const info = exerciseMap[ex];
+    if (!info) return !cat && !grupo;
+    if (cat && getRegion(info.grupo) !== cat) return false;
+    if (grupo && info.grupo !== grupo) return false;
+    return true;
+  });
+}
+
+function populateGrupos() {
+  const selG = document.getElementById('fGrupo');
+  const prev = selG.value;
+  selG.innerHTML = '<option value="">Todos</option>';
+  const cat = document.getElementById('fCategoria').value;
+  const allEx = [...new Set(allData.map(r => r.exercicio).filter(Boolean))];
+  const grupos = new Set();
+  allEx.forEach(ex => {
+    const info = exerciseMap[ex];
+    if (!info) return;
+    if (cat && getRegion(info.grupo) !== cat) return;
+    if (info.grupo) grupos.add(info.grupo);
+  });
+  [...grupos].sort().forEach(g => {
+    const o = document.createElement('option'); o.value = g; o.textContent = g; selG.appendChild(o);
+  });
+  if ([...selG.options].some(o => o.value === prev)) selG.value = prev;
+  else selG.value = '';
+}
+
+function populateExercicios() {
   const selE = document.getElementById('fExercicio');
-  exercicios.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; selE.appendChild(o); });
+  const prev = selE.value;
+  selE.innerHTML = '<option value="">Todos</option>';
+  getExercisesForFilter().forEach(e => {
+    const o = document.createElement('option'); o.value = e; o.textContent = e; selE.appendChild(o);
+  });
+  if ([...selE.options].some(o => o.value === prev)) selE.value = prev;
+  else selE.value = '';
+}
+
+function onCategoriaChange() {
+  populateGrupos();
+  populateExercicios();
+}
+
+function onGrupoChange() {
+  populateExercicios();
+}
+
+function setDatePreset(months) {
+  const to = new Date();
+  const from = new Date();
+  from.setMonth(from.getMonth() - months);
+  document.getElementById('fFrom').value = from.toISOString().slice(0, 10);
+  document.getElementById('fTo').value = to.toISOString().slice(0, 10);
+  // Highlight active preset
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  applyFilters();
 }
 
 function applyFilters() {
   const from = document.getElementById('fFrom').value;
   const to = document.getElementById('fTo').value;
   const treino = document.getElementById('fTreino').value;
+  const cat = document.getElementById('fCategoria').value;
+  const grupo = document.getElementById('fGrupo').value;
   const exercicio = document.getElementById('fExercicio').value;
   filteredData = allData.filter(r => {
     if (from && r.data < from) return false;
     if (to && r.data > to) return false;
     if (treino && r.treino !== treino) return false;
     if (exercicio && r.exercicio !== exercicio) return false;
+    if (cat || grupo) {
+      const info = exerciseMap[r.exercicio];
+      if (!info) return false;
+      if (cat && getRegion(info.grupo) !== cat) return false;
+      if (grupo && info.grupo !== grupo) return false;
+    }
     return true;
   });
   render();
@@ -384,7 +531,10 @@ function clearFilters() {
   document.getElementById('fFrom').value = '';
   document.getElementById('fTo').value = '';
   document.getElementById('fTreino').value = '';
-  document.getElementById('fExercicio').value = '';
+  document.getElementById('fCategoria').value = '';
+  populateGrupos();
+  populateExercicios();
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
   filteredData = [...allData];
   render();
 }
