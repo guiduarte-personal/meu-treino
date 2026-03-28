@@ -138,8 +138,19 @@ body{
 .session-header .date{
   font-size:13px;color:var(--text2);padding:6px 12px;
   background:var(--bg);border-radius:8px;border:1px solid var(--border);flex:1;
-  text-align:center;font-weight:500;
+  text-align:center;font-weight:500;cursor:pointer;position:relative;
 }
+.session-header .date:active{background:var(--border)}
+.session-header .date input[type="date"]{
+  position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;
+  -webkit-appearance:none;
+}
+.date-nav{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+  background:var(--white);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:14px;color:var(--text2);flex-shrink:0;
+}
+.date-nav:active{background:var(--bg)}
 .treino-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .treino-pill{
   padding:6px 14px;border-radius:20px;border:1px solid var(--border);
@@ -449,7 +460,12 @@ body{
   <div class="screen" id="screenSession">
     <div class="session-header">
       <div class="row">
-        <div class="date" id="sessionDate"></div>
+        <button class="date-nav" onclick="changeDate(-1)">‹</button>
+        <div class="date" id="sessionDate">
+          <span id="sessionDateLabel"></span>
+          <input type="date" id="sessionDatePicker" onchange="pickDate(this.value)">
+        </div>
+        <button class="date-nav" onclick="changeDate(1)">›</button>
       </div>
       <div class="treino-pills" id="treinoPills"></div>
     </div>
@@ -458,7 +474,7 @@ body{
     <div id="addFormContainer"></div>
     <div class="empty" id="emptyState">
       <div class="icon">🏋️</div>
-      <p>Nenhum exercício registrado hoje.<br>Toque no <strong>+</strong> para começar.</p>
+      <p>Nenhum exercício registrado neste dia.<br>Toque no <strong>+</strong> para começar.</p>
     </div>
   </div>
 </div>
@@ -478,6 +494,7 @@ let exercises = [];
 let currentStudent = null;
 let currentTreino = 'A';
 let todayEntries = [];
+let sessionDate = new Date();
 let isAdding = false;
 
 // ── Init ──
@@ -513,7 +530,7 @@ function showScreen(id) {
     document.getElementById('dateLabel').textContent = formatDateBR(new Date());
   }
   if (isSession && currentStudent) {
-    document.getElementById('topInfo').innerHTML = `<h2>${currentStudent.nome}</h2><p>Sessão de hoje</p>`;
+    updateSessionDate();
   }
   if (isExercises) {
     document.getElementById('topInfo').innerHTML = '<h2>Gerenciar Exercícios</h2><p>Criar, editar e remover</p>';
@@ -815,10 +832,32 @@ function openDashboard(idx) {
 // ── Select Student ──
 async function selectStudent(idx) {
   currentStudent = students[idx];
+  sessionDate = new Date();
   showScreen('screenSession');
-  document.getElementById('sessionDate').textContent = formatDateBR(new Date());
+  updateSessionDate();
   renderTreinoPills();
-  await loadToday();
+  await loadSession();
+}
+
+function updateSessionDate() {
+  document.getElementById('sessionDateLabel').textContent = formatDateBR(sessionDate);
+  document.getElementById('sessionDatePicker').value = formatDateISO(sessionDate);
+  const isToday = formatDateISO(sessionDate) === formatDateISO(new Date());
+  document.getElementById('topInfo').innerHTML = `<h2>${currentStudent.nome}</h2><p>${isToday ? 'Sessão de hoje' : 'Sessão de ' + sessionDate.getDate().toString().padStart(2,'0') + '/' + (sessionDate.getMonth()+1).toString().padStart(2,'0')}</p>`;
+}
+
+function changeDate(delta) {
+  sessionDate.setDate(sessionDate.getDate() + delta);
+  updateSessionDate();
+  loadSession();
+}
+
+function pickDate(val) {
+  if (!val) return;
+  const [y, m, d] = val.split('-').map(Number);
+  sessionDate = new Date(y, m - 1, d);
+  updateSessionDate();
+  loadSession();
 }
 
 // ── Treino type pills ──
@@ -834,17 +873,18 @@ function setTreino(t) {
   renderTreinoPills();
 }
 
-// ── Load Today's entries ──
-async function loadToday() {
+// ── Load session entries for selected date ──
+async function loadSession() {
   try {
-    todayEntries = await api('today', { aluno: currentStudent.id });
+    const dateStr = formatDateISO(sessionDate);
+    todayEntries = await api('history', { aluno: currentStudent.id, from: dateStr, to: dateStr });
     if (todayEntries.length > 0) {
       currentTreino = todayEntries[0].treino || 'A';
       renderTreinoPills();
     }
     renderExercises();
   } catch (e) {
-    toast('Erro ao carregar treino de hoje', true);
+    toast('Erro ao carregar treino', true);
   }
 }
 
@@ -1167,7 +1207,7 @@ async function saveExercise() {
 
   const data = {
     action: 'add',
-    data: formatDateISO(new Date()),
+    data: formatDateISO(sessionDate),
     aluno: currentStudent.id,
     treino: currentTreino,
     exercicio,
@@ -1190,7 +1230,7 @@ async function saveExercise() {
     hideAddForm();
     selectedRPE = 0;
     // Reload entries
-    await loadToday();
+    await loadSession();
   } catch (e) {
     toast('Erro ao salvar. Tente novamente.', true);
     btn.disabled = false;
@@ -1203,7 +1243,7 @@ async function deleteExercise(rowIndex, idx) {
   try {
     await apiPost({ action: 'delete', rowIndex });
     toast('Removido');
-    await loadToday();
+    await loadSession();
   } catch (e) {
     toast('Erro ao remover', true);
   }
