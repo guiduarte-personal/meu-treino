@@ -220,6 +220,30 @@ body{
 }
 .btn-finish-ex:active{opacity:0.85}
 .btn-finish-ex:disabled{background:var(--border);color:var(--text3);cursor:default}
+.btn-finish-session{
+  background:var(--white);color:var(--orange);border:2px solid var(--orange);
+  padding:14px;width:100%;border-radius:var(--radius);font-size:14px;
+  font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px;
+}
+.btn-finish-session:active{background:var(--orange-bg)}
+
+/* ── Summary comparisons ── */
+.summary-comparisons{text-align:left;margin-bottom:16px}
+.summary-comparisons h4{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;text-align:center}
+.cmp-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:4px;
+  font-size:13px;
+}
+.cmp-item .cmp-name{font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp-item .cmp-diff{font-weight:700;margin-left:8px;white-space:nowrap}
+.cmp-item .cmp-diff.up{color:var(--green)}
+.cmp-item .cmp-diff.down{color:var(--red)}
+.cmp-item .cmp-diff.same{color:var(--text3)}
+.summary-link{
+  display:block;text-align:center;color:var(--blue);font-weight:600;
+  font-size:13px;margin:12px 0;text-decoration:none;
+}
 
 /* ── Duplicate/Summary overlays ── */
 .overlay{
@@ -574,6 +598,9 @@ body{
     <div class="session-stats" id="sessionStats"></div>
     <div id="exerciseList"></div>
     <div id="addFormContainer"></div>
+    <div id="finishBtnContainer" style="display:none">
+      <button class="btn-finish-session" onclick="showSessionSummary()">✓ Finalizar Sessão</button>
+    </div>
     <div class="empty" id="emptyState">
       <div class="icon">🏋️</div>
       <p>Nenhum exercício registrado neste dia.<br>Toque no <strong>+</strong> para começar.</p>
@@ -994,6 +1021,21 @@ function getUniqueDates() {
   return Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
 }
 
+function getComparisonForExercise(name) {
+  if (!studentHistoryCache) return null;
+  const currentDateStr = formatDateISO(sessionDate);
+  const prev = studentHistoryCache
+    .filter(e => e.exercicio === name && e.data !== currentDateStr)
+    .sort((a, b) => b.data.localeCompare(a.data))[0];
+  if (!prev) return null;
+  return prev;
+}
+
+function getDashboardUrl() {
+  const base = window.location.origin + window.location.pathname.replace('registrar.html', '');
+  return `${base}?api=${encodeURIComponent(API_URL)}&aluno=${encodeURIComponent(currentStudent.id)}`;
+}
+
 // ── Select Student ──
 async function selectStudent(idx) {
   currentStudent = students[idx];
@@ -1066,9 +1108,11 @@ function renderExercises() {
     list.innerHTML = '';
     stats.innerHTML = '';
     empty.style.display = 'block';
+    document.getElementById('finishBtnContainer').style.display = 'none';
     return;
   }
   empty.style.display = 'none';
+  document.getElementById('finishBtnContainer').style.display = 'block';
 
   // Mini stats — use per-set data when available for accurate volume
   const totalVol = todayEntries.reduce((s, e) => {
@@ -1692,11 +1736,39 @@ function showSessionSummary() {
   if (todayEntries.length === 0) return;
 
   const exCount = todayEntries.length;
-  const totalVol = todayEntries.reduce((s, e) => s + (e.series * e.reps * e.carga), 0);
+  const totalVol = todayEntries.reduce((s, e) => {
+    const setMatch = e.obs?.match(/\[([\d@.,\s]+)\]/);
+    if (setMatch) return s + setMatch[1].split(',').reduce((sum, p) => { const [r, c] = p.trim().split('@').map(Number); return sum + (r||0) * (c||0); }, 0);
+    return s + (e.series * e.reps * e.carga);
+  }, 0);
   const avgRpe = todayEntries.filter(e => e.rpe > 0);
   const rpe = avgRpe.length ? (avgRpe.reduce((s, e) => s + e.rpe, 0) / avgRpe.length).toFixed(1) : '—';
   const prs = todayEntries.filter(e => e.obs?.toLowerCase().includes('pr')).map(e => e.exercicio);
   const duration = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : null;
+
+  // Build comparisons
+  const comparisons = todayEntries.map(e => {
+    const prev = getComparisonForExercise(e.exercicio);
+    if (!prev) return null;
+    const diffCarga = e.carga - prev.carga;
+    const d = prev.data.split('-');
+    let cls, icon, text;
+    if (diffCarga > 0) { cls = 'up'; icon = '↑'; text = `+${diffCarga}kg`; }
+    else if (diffCarga < 0) { cls = 'down'; icon = '↓'; text = `${diffCarga}kg`; }
+    else { cls = 'same'; icon = '='; text = 'mesma carga'; }
+    return { name: e.exercicio, cls, text: `${icon} ${text}`, date: `${d[2]}/${d[1]}` };
+  }).filter(Boolean);
+
+  const cmpHTML = comparisons.length > 0 ? `
+    <div class="summary-comparisons">
+      <h4>Evolução vs último treino</h4>
+      ${comparisons.map(c => `<div class="cmp-item">
+        <span class="cmp-name">${c.name}</span>
+        <span class="cmp-diff ${c.cls}">${c.text} <span style="font-weight:400;color:var(--text3);font-size:11px">(${c.date})</span></span>
+      </div>`).join('')}
+    </div>` : '';
+
+  const dashUrl = getDashboardUrl();
 
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
@@ -1711,6 +1783,8 @@ function showSessionSummary() {
       ${duration ? `<div class="mini-stat"><div class="val">${duration}min</div><div class="lbl">Duração</div></div>` : ''}
     </div>
     ${prs.length > 0 ? `<div style="background:var(--yellow);color:#000;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px">🏆 PRs: ${prs.join(', ')}</div>` : ''}
+    ${cmpHTML}
+    <a class="summary-link" href="${dashUrl}" target="_blank">📊 Ver Painel Completo do Aluno</a>
     <button class="btn-share" onclick="shareWhatsApp()">📱 Compartilhar via WhatsApp</button>
     <button class="btn-close" onclick="closeSummaryAndGoBack()">Fechar</button>
   </div>`;
@@ -1720,10 +1794,31 @@ function showSessionSummary() {
 
 function shareWhatsApp() {
   const exCount = todayEntries.length;
-  const totalVol = (todayEntries.reduce((s, e) => s + (e.series * e.reps * e.carga), 0) / 1000).toFixed(1);
+  const totalVol = (todayEntries.reduce((s, e) => {
+    const setMatch = e.obs?.match(/\[([\d@.,\s]+)\]/);
+    if (setMatch) return s + setMatch[1].split(',').reduce((sum, p) => { const [r, c] = p.trim().split('@').map(Number); return sum + (r||0) * (c||0); }, 0);
+    return s + (e.series * e.reps * e.carga);
+  }, 0) / 1000).toFixed(1);
   const avgRpe = todayEntries.filter(e => e.rpe > 0);
   const rpe = avgRpe.length ? (avgRpe.reduce((s, e) => s + e.rpe, 0) / avgRpe.length).toFixed(1) : '—';
   const treinos = [...new Set(todayEntries.map(e => e.treino))].sort().join(', ');
+
+  // Build exercise lines with comparison
+  const exLines = todayEntries.slice(0, 15).map(e => {
+    const setMatch = e.obs?.match(/\[([\d@.,\s]+)\]/);
+    const detail = setMatch ? setMatch[1].split(',').map(s => s.trim().split('@')[0]).join('/') + ' reps' : `${e.series}×${e.reps}`;
+    let line = `▪️ ${e.exercicio}: ${detail} @ ${e.carga}kg`;
+    if (e.obs?.toLowerCase().includes('pr')) line += ' 🏆';
+    const prev = getComparisonForExercise(e.exercicio);
+    if (prev) {
+      const diff = e.carga - prev.carga;
+      if (diff > 0) line += ` _(↑ +${diff}kg)_`;
+      else if (diff < 0) line += ` _(↓ ${diff}kg)_`;
+    }
+    return line;
+  });
+
+  const dashUrl = getDashboardUrl();
 
   const lines = [
     `*${currentStudent.nome}* — Treino ${treinos}`,
@@ -1734,11 +1829,9 @@ function shareWhatsApp() {
     `• ${totalVol}t de volume`,
     `• RPE médio: ${rpe}`,
     '',
-    ...todayEntries.slice(0, 15).map(e => {
-      const setMatch = e.obs?.match(/\[([\d@.,\s]+)\]/);
-      const detail = setMatch ? setMatch[1].split(',').map(s => s.trim().split('@')[0]).join('/') + ' reps' : `${e.series}×${e.reps}`;
-      return `▪️ ${e.exercicio}: ${detail} @ ${e.carga}kg${e.obs?.toLowerCase().includes('pr') ? ' 🏆' : ''}`;
-    }),
+    ...exLines,
+    '',
+    `📊 Painel completo: ${dashUrl}`,
     '',
     `_Registrado com GUI Personal_`
   ].join('\n');
